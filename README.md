@@ -1,4 +1,4 @@
-# 🎖️ The Lost Front 
+# 🎖️ The Lost Front - Suite (ESP, Combat, Weapon & Staff Detector)
 
 ![Roblox](https://img.shields.io/badge/Roblox-The_Lost_Front-blue?style=for-the-badge&logo=roblox)
 ![Status](https://img.shields.io/badge/Status-Undetected-brightgreen?style=for-the-badge)
