@@ -114,7 +114,7 @@ local function ExecuteGameScript(key, gameCode, gameTitle, RayfieldLib)
     
     if RayfieldLib then
         RayfieldLib:Notify({
-            Title = "MintraZERX Loader",
+            Title = "Loader Script",
             Content = "Downloading " .. gameTitle .. " from server...",
             Duration = 3.5
         })
@@ -243,8 +243,8 @@ OpenRayfieldHub = function(validKey)
     end
 
     local Window = Rayfield:CreateWindow({
-        Name = "MintraZERX Multi-Game Hub",
-        LoadingTitle = "MintraZERX Suite",
+        Name = "Loader Script",
+        LoadingTitle = "Loader Script",
         LoadingSubtitle = "Cloud Protected Client",
         ConfigurationSaving = {
             Enabled = false
@@ -376,14 +376,14 @@ OpenRayfieldHub = function(validKey)
     })
 
     LicenseTab:CreateButton({
-        Name = "Close MintraZERX Hub",
+        Name = "Close Loader Script",
         Callback = function()
             Rayfield:Destroy()
         end
     })
 
     Rayfield:Notify({
-        Title = "MintraZERX Hub",
+        Title = "Loader Script",
         Content = "Authenticated successfully.",
         Duration = 3.5
     })
@@ -426,7 +426,7 @@ local function ShowRayfieldKeyLogin()
     -- Title
     local Title = Instance.new("TextLabel")
     Title.Name = "Title"
-    Title.Text = "MintraZERX Suite"
+    Title.Text = "Loader Script"
     Title.Font = Enum.Font.GothamBold
     Title.TextSize = 18
     Title.TextColor3 = Color3.fromRGB(240, 240, 240)
