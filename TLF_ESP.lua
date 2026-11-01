@@ -1342,6 +1342,7 @@ local originalWeaponStats = {}
 local originalMakeSpread = nil
 local originalCalculateDirection = nil
 local originalRaycast = nil
+local originalFastCastFire = nil
 local weaponStatusLabel = nil
 local lastWeaponScan = 0
 
@@ -1473,6 +1474,48 @@ local function hookSpreadModule()
                     end
                 end
                 return originalRaycast(origin, direction, params, ...)
+            end
+        end
+
+        -- 4. Hook FastCast:Fire (VISUAL PROJECTILE & TRACER CORE - ให้หัวกระสุนเลี้ยวตามศัตรูตาเห็น)
+        if type(shotMod.object) == "table" and type(shotMod.object.Fire) == "function" then
+            if not originalFastCastFire then
+                originalFastCastFire = shotMod.object.Fire
+            end
+            shotMod.object.Fire = function(self, origin, direction, velocity, behavior, ...)
+                if Config.SilentAim and type(findCombatTarget) == "function" and typeof(origin) == "Vector3" then
+                    local sTarget = findCombatTarget({
+                        fov = Config.SilentAimFov or 800,
+                        maxDistance = Config.AimMaxDistance or 1500,
+                        players = true,
+                        drones = Config.AimDrones,
+                        teamCheck = Config.AimTeamCheck,
+                        wallCheck = Config.SilentAimWallCheck,
+                        part = Config.SilentAimPart or Config.AimPart or "Head",
+                    })
+                    if sTarget then
+                        local targetPart = sTarget.part
+                        local targetPos = nil
+                        if Config.PredictionEnabled and type(getPredictedTargetPosition) == "function" then
+                            targetPos = getPredictedTargetPosition(sTarget, origin)
+                        end
+                        if not targetPos and targetPart then
+                            targetPos = targetPart.Position
+                        end
+                        if targetPos then
+                            local newDir = (targetPos - origin).Unit
+                            if typeof(direction) == "Vector3" then
+                                direction = newDir * direction.Magnitude
+                            else
+                                direction = newDir
+                            end
+                            if typeof(velocity) == "Vector3" then
+                                velocity = newDir * velocity.Magnitude
+                            end
+                        end
+                    end
+                end
+                return originalFastCastFire(self, origin, direction, velocity, behavior, ...)
             end
         end
     end
