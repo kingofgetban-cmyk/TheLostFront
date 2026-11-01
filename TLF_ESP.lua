@@ -192,6 +192,13 @@ local Config = {
     MobileAimToggle = false,
     MobileBtnSize = 65,
 
+    -- Silent Aim & Prediction
+    SilentAim = true,
+    SilentAimFov = 250,
+    SilentAimPart = "Head",
+    SilentAimWallCheck = true,
+    PredictionEnabled = true,
+
     TriggerBot = false,
     TriggerDistance = 150,
     TriggerDelay = 120,
@@ -1050,7 +1057,60 @@ DronesTab:CreateButton({
 
 DronesTab:CreateLabel("Side check: drone owner team vs your team")
 
-CombatTab:CreateSection("AIMBOT")
+CombatTab:CreateSection("SILENT AIM & PREDICTION")
+
+CombatTab:CreateToggle({
+    Name = "Silent Aim (กระสุนล็อกหัว ไม่ขยับกล้อง)",
+    CurrentValue = true,
+    Flag = "tlf_silent_aim",
+    Callback = function(v)
+        Config.SilentAim = v
+    end,
+})
+
+CombatTab:CreateToggle({
+    Name = "Bullet Prediction (คำนวณยิงดักหน้า)",
+    CurrentValue = true,
+    Flag = "tlf_prediction",
+    Callback = function(v)
+        Config.PredictionEnabled = v
+    end,
+})
+
+CombatTab:CreateSlider({
+    Name = "Silent Aim FOV",
+    Range = { 50, 800 },
+    Increment = 10,
+    Suffix = " px",
+    CurrentValue = 250,
+    Flag = "tlf_silent_fov",
+    Callback = function(v)
+        Config.SilentAimFov = v
+    end,
+})
+
+CombatTab:CreateDropdown({
+    Name = "Silent Aim Target Part",
+    Options = { "Head", "Torso", "Nearest" },
+    CurrentOption = { "Head" },
+    MultipleOptions = false,
+    Flag = "tlf_silent_part",
+    Callback = function(option)
+        local v = type(option) == "table" and option[1] or option
+        Config.SilentAimPart = tostring(v or "Head")
+    end,
+})
+
+CombatTab:CreateToggle({
+    Name = "Silent Aim Wall Check (เช็กกำแพง)",
+    CurrentValue = true,
+    Flag = "tlf_silent_wallcheck",
+    Callback = function(v)
+        Config.SilentAimWallCheck = v
+    end,
+})
+
+CombatTab:CreateSection("AIMBOT (CAMERA / MOUSE)")
 
 CombatTab:CreateToggle({
     Name = "AimBot",
@@ -1283,6 +1343,11 @@ local originalMakeSpread = nil
 local weaponStatusLabel = nil
 local lastWeaponScan = 0
 
+-- Forward declarations for Combat & Silent Aim
+local findCombatTarget = nil
+local getTargetPosition = nil
+local getPredictedTargetPosition = nil
+
 local function makeWritable(t)
     if type(t) == "table" then
         if table.isfrozen and table.isfrozen(t) and setreadonly then
@@ -1303,6 +1368,26 @@ local function hookSpreadModule()
             originalMakeSpread = shotMod.makeSpread
         end
         shotMod.makeSpread = function(min_s, max_s, origin, direction, ...)
+            -- 1. Silent Aim with Bullet & Movement Prediction
+            if Config.SilentAim and type(findCombatTarget) == "function" and origin then
+                local sTarget = findCombatTarget({
+                    fov = Config.SilentAimFov or 250,
+                    maxDistance = Config.AimMaxDistance or 1000,
+                    players = true,
+                    drones = Config.AimDrones,
+                    teamCheck = Config.AimTeamCheck,
+                    wallCheck = Config.SilentAimWallCheck,
+                    part = Config.SilentAimPart or Config.AimPart or "Head",
+                })
+                if sTarget and type(getPredictedTargetPosition) == "function" then
+                    local predPos = getPredictedTargetPosition(sTarget, origin)
+                    if predPos then
+                        return (predPos - origin).Unit
+                    end
+                end
+            end
+
+            -- 2. No Spread
             if Config.NoSpread and direction then
                 return direction
             end
@@ -2051,7 +2136,7 @@ local function isPartVisible(part, char)
     return false
 end
 
-local function findCombatTarget(opts)
+findCombatTarget = function(opts)
     refreshCamera()
     if not CAM then return nil end
     local center = Vector2.new(CAM.ViewportSize.X / 2, CAM.ViewportSize.Y / 2)
@@ -2144,7 +2229,7 @@ end
 
 local currentAimTarget = nil
 
-local function getTargetPosition(target)
+getTargetPosition = function(target)
     if not target or not target.part or not target.part.Parent then return nil end
     if target.kind == "player" and target.character then
         local hrp = target.character:FindFirstChild("HumanoidRootPart")
@@ -2157,6 +2242,43 @@ local function getTargetPosition(target)
         end
     end
     return target.part.Position
+end
+
+getPredictedTargetPosition = function(target, origin, customSpeed)
+    local rawPos = getTargetPosition(target)
+    if not rawPos then return nil end
+    
+    if not Config.PredictionEnabled or not origin then
+        return rawPos
+    end
+    
+    local velocity = Vector3.zero
+    if target.kind == "player" and target.character then
+        local hrp = target.character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            velocity = hrp.AssemblyLinearVelocity or hrp.Velocity or Vector3.zero
+        end
+    elseif target.kind == "drone" and target.model then
+        local pPart = target.model.PrimaryPart or target.part
+        if pPart then
+            velocity = pPart.AssemblyLinearVelocity or pPart.Velocity or Vector3.zero
+        end
+    end
+    
+    local dist = (rawPos - origin).Magnitude
+    local bSpeed = customSpeed or Config.BulletSpeedVal or 2500
+    if bSpeed <= 50 then bSpeed = 2500 end
+    local timeToHit = dist / bSpeed
+    
+    -- Lead the moving target
+    local predictedPos = rawPos + (velocity * timeToHit)
+    
+    -- Compensate bullet gravity drop if zero gravity is not active
+    if not Config.NoBulletDrop and timeToHit > 0 then
+        predictedPos = predictedPos + Vector3.new(0, 0.5 * 196.2 * (timeToHit ^ 2), 0)
+    end
+    
+    return predictedPos
 end
 
 local function isTargetValid(target)
@@ -2219,7 +2341,7 @@ local function updateAim(dt)
     local cam = Workspace.CurrentCamera
     if not cam then return end
 
-    local targetPos = getTargetPosition(target)
+    local targetPos = getPredictedTargetPosition(target, cam.CFrame.Position)
     if not targetPos then return end
 
     local useMouse = (not isMobile) and (Config.AimMethod == "Mouse" or Config.AimMethod == "Mouse (Smooth)") and type(mousemoverel) == "function"
