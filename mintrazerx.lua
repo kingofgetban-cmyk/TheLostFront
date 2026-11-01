@@ -245,7 +245,7 @@ OpenRayfieldHub = function(validKey)
     local Window = Rayfield:CreateWindow({
         Name = "Loader Script",
         LoadingTitle = "Loader Script",
-        LoadingSubtitle = "Cloud Protected Client",
+        LoadingSubtitle = "made by valexcryzer",
         ConfigurationSaving = {
             Enabled = false
         },
