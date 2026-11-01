@@ -1341,6 +1341,7 @@ local cachedWeapons = {}
 local originalWeaponStats = {}
 local originalMakeSpread = nil
 local originalCalculateDirection = nil
+local originalRaycast = nil
 local weaponStatusLabel = nil
 local lastWeaponScan = 0
 
@@ -1365,7 +1366,7 @@ local function hookSpreadModule()
         return mod and require(mod) or nil
     end)
     if okM and type(shotMod) == "table" then
-        -- 1. Hook makeSpread
+        -- 1. Hook makeSpread (Visual bullet direction)
         if type(shotMod.makeSpread) == "function" then
             if not originalMakeSpread then
                 originalMakeSpread = shotMod.makeSpread
@@ -1385,7 +1386,7 @@ local function hookSpreadModule()
                     })
                     if sTarget and shootOrigin then
                         local predPos = nil
-                        if type(getPredictedTargetPosition) == "function" then
+                        if Config.PredictionEnabled and type(getPredictedTargetPosition) == "function" then
                             predPos = getPredictedTargetPosition(sTarget, shootOrigin)
                         end
                         if not predPos and sTarget.part then
@@ -1424,7 +1425,7 @@ local function hookSpreadModule()
                     })
                     if sTarget and shootOrigin then
                         local predPos = nil
-                        if type(getPredictedTargetPosition) == "function" then
+                        if Config.PredictionEnabled and type(getPredictedTargetPosition) == "function" then
                             predPos = getPredictedTargetPosition(sTarget, shootOrigin)
                         end
                         if not predPos and sTarget.part then
@@ -1436,6 +1437,42 @@ local function hookSpreadModule()
                     end
                 end
                 return originalCalculateDirection(origin, targetPos, ...)
+            end
+        end
+
+        -- 3. Hook raycast (HIT REGISTRATION CORE - แดเมจจริงของกระสุน)
+        if type(shotMod.raycast) == "function" then
+            if not originalRaycast then
+                originalRaycast = shotMod.raycast
+            end
+            shotMod.raycast = function(origin, direction, params, ...)
+                if Config.SilentAim and type(findCombatTarget) == "function" and typeof(origin) == "Vector3" then
+                    local sTarget = findCombatTarget({
+                        fov = Config.SilentAimFov or 800,
+                        maxDistance = Config.AimMaxDistance or 1500,
+                        players = true,
+                        drones = Config.AimDrones,
+                        teamCheck = Config.AimTeamCheck,
+                        wallCheck = Config.SilentAimWallCheck,
+                        part = Config.SilentAimPart or Config.AimPart or "Head",
+                    })
+                    if sTarget then
+                        local targetPart = sTarget.part
+                        local targetPos = nil
+                        if Config.PredictionEnabled and type(getPredictedTargetPosition) == "function" then
+                            targetPos = getPredictedTargetPosition(sTarget, origin)
+                        end
+                        if not targetPos and targetPart then
+                            targetPos = targetPart.Position
+                        end
+                        if targetPos then
+                            local newDir = targetPos - origin
+                            local aimRayDir = newDir.Unit * math.max(newDir.Magnitude + 15, (typeof(direction) == "Vector3" and direction.Magnitude) or 500)
+                            return originalRaycast(origin, aimRayDir, params, ...)
+                        end
+                    end
+                end
+                return originalRaycast(origin, direction, params, ...)
             end
         end
     end
