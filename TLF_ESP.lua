@@ -2642,9 +2642,20 @@ local function updateAimVisuals()
     if silentAimLine then
         local showLine = Config.SilentAim and Config.SilentAimLine and CAM
         local lineDrawn = false
-        if showLine then
-            -- ใช้ _silentAimCachedTarget ก่อน ถ้าไม่มีใช้ currentAimTarget
-            local t = _silentAimCachedTarget or currentAimTarget
+        if showLine and type(findCombatTarget) == "function" then
+            -- Poll target ทุก frame (ไม่พึ่ง cache ที่หมดอายุเร็ว)
+            local t = nil
+            pcall(function()
+                t = findCombatTarget({
+                    fov = Config.SilentAimFov or 800,
+                    maxDistance = Config.AimMaxDistance or 1500,
+                    players = true,
+                    drones = Config.AimDrones,
+                    teamCheck = Config.AimTeamCheck,
+                    wallCheck = false,   -- line ไม่เช็กกำแพง แค่ชี้ว่า lock ใคร
+                    part = Config.SilentAimPart or Config.AimPart or "Head",
+                })
+            end)
             if t and t.part and t.part.Parent then
                 pcall(function()
                     local targetPos = t.part.Position
@@ -2652,7 +2663,7 @@ local function updateAimVisuals()
                     if onScreen then
                         local center = Vector2.new(CAM.ViewportSize.X / 2, CAM.ViewportSize.Y / 2)
                         silentAimLine.From = center
-                        silentAimLine.To = Vector2.new(sp.X, sp.Y)
+                        silentAimLine.To   = Vector2.new(sp.X, sp.Y)
                         silentAimLine.Visible = true
                         lineDrawn = true
                     end
