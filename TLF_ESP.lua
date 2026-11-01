@@ -194,9 +194,9 @@ local Config = {
 
     -- Silent Aim & Prediction
     SilentAim = true,
-    SilentAimFov = 250,
+    SilentAimFov = 800,
     SilentAimPart = "Head",
-    SilentAimWallCheck = true,
+    SilentAimWallCheck = false,
     PredictionEnabled = true,
 
     TriggerBot = false,
@@ -1079,10 +1079,10 @@ CombatTab:CreateToggle({
 
 CombatTab:CreateSlider({
     Name = "Silent Aim FOV",
-    Range = { 50, 800 },
-    Increment = 10,
+    Range = { 50, 2000 },
+    Increment = 25,
     Suffix = " px",
-    CurrentValue = 250,
+    CurrentValue = 800,
     Flag = "tlf_silent_fov",
     Callback = function(v)
         Config.SilentAimFov = v
@@ -1103,7 +1103,7 @@ CombatTab:CreateDropdown({
 
 CombatTab:CreateToggle({
     Name = "Silent Aim Wall Check (เช็กกำแพง)",
-    CurrentValue = true,
+    CurrentValue = false,
     Flag = "tlf_silent_wallcheck",
     Callback = function(v)
         Config.SilentAimWallCheck = v
@@ -1340,6 +1340,7 @@ end
 local cachedWeapons = {}
 local originalWeaponStats = {}
 local originalMakeSpread = nil
+local originalCalculateDirection = nil
 local weaponStatusLabel = nil
 local lastWeaponScan = 0
 
@@ -1363,35 +1364,79 @@ local function hookSpreadModule()
         local mod = ReplicatedStorage:FindFirstChild("lIIIlllIIlIllIlllllIIllllIlllIlIlIIlIllIllllIIlIllIlllllIllI")
         return mod and require(mod) or nil
     end)
-    if okM and type(shotMod) == "table" and type(shotMod.makeSpread) == "function" then
-        if not originalMakeSpread then
-            originalMakeSpread = shotMod.makeSpread
-        end
-        shotMod.makeSpread = function(min_s, max_s, origin, direction, ...)
-            -- 1. Silent Aim with Bullet & Movement Prediction
-            if Config.SilentAim and type(findCombatTarget) == "function" and origin then
-                local sTarget = findCombatTarget({
-                    fov = Config.SilentAimFov or 250,
-                    maxDistance = Config.AimMaxDistance or 1000,
-                    players = true,
-                    drones = Config.AimDrones,
-                    teamCheck = Config.AimTeamCheck,
-                    wallCheck = Config.SilentAimWallCheck,
-                    part = Config.SilentAimPart or Config.AimPart or "Head",
-                })
-                if sTarget and type(getPredictedTargetPosition) == "function" then
-                    local predPos = getPredictedTargetPosition(sTarget, origin)
-                    if predPos then
-                        return (predPos - origin).Unit
+    if okM and type(shotMod) == "table" then
+        -- 1. Hook makeSpread
+        if type(shotMod.makeSpread) == "function" then
+            if not originalMakeSpread then
+                originalMakeSpread = shotMod.makeSpread
+            end
+            shotMod.makeSpread = function(min_s, max_s, origin, direction, ...)
+                if Config.SilentAim and type(findCombatTarget) == "function" then
+                    local cam = Workspace.CurrentCamera
+                    local shootOrigin = (typeof(origin) == "Vector3" and origin) or (cam and cam.CFrame.Position)
+                    local sTarget = findCombatTarget({
+                        fov = Config.SilentAimFov or 800,
+                        maxDistance = Config.AimMaxDistance or 1500,
+                        players = true,
+                        drones = Config.AimDrones,
+                        teamCheck = Config.AimTeamCheck,
+                        wallCheck = Config.SilentAimWallCheck,
+                        part = Config.SilentAimPart or Config.AimPart or "Head",
+                    })
+                    if sTarget and shootOrigin then
+                        local predPos = nil
+                        if type(getPredictedTargetPosition) == "function" then
+                            predPos = getPredictedTargetPosition(sTarget, shootOrigin)
+                        end
+                        if not predPos and sTarget.part then
+                            predPos = sTarget.part.Position
+                        end
+                        if predPos then
+                            return (predPos - shootOrigin).Unit
+                        end
                     end
                 end
-            end
 
-            -- 2. No Spread
-            if Config.NoSpread and direction then
-                return direction
+                if Config.NoSpread and direction then
+                    return direction
+                end
+                return originalMakeSpread(min_s, max_s, origin, direction, ...)
             end
-            return originalMakeSpread(min_s, max_s, origin, direction, ...)
+        end
+
+        -- 2. Hook calculateDirection
+        if type(shotMod.calculateDirection) == "function" then
+            if not originalCalculateDirection then
+                originalCalculateDirection = shotMod.calculateDirection
+            end
+            shotMod.calculateDirection = function(origin, targetPos, ...)
+                if Config.SilentAim and type(findCombatTarget) == "function" then
+                    local cam = Workspace.CurrentCamera
+                    local shootOrigin = (typeof(origin) == "Vector3" and origin) or (cam and cam.CFrame.Position)
+                    local sTarget = findCombatTarget({
+                        fov = Config.SilentAimFov or 800,
+                        maxDistance = Config.AimMaxDistance or 1500,
+                        players = true,
+                        drones = Config.AimDrones,
+                        teamCheck = Config.AimTeamCheck,
+                        wallCheck = Config.SilentAimWallCheck,
+                        part = Config.SilentAimPart or Config.AimPart or "Head",
+                    })
+                    if sTarget and shootOrigin then
+                        local predPos = nil
+                        if type(getPredictedTargetPosition) == "function" then
+                            predPos = getPredictedTargetPosition(sTarget, shootOrigin)
+                        end
+                        if not predPos and sTarget.part then
+                            predPos = sTarget.part.Position
+                        end
+                        if predPos then
+                            return (predPos - shootOrigin).Unit
+                        end
+                    end
+                end
+                return originalCalculateDirection(origin, targetPos, ...)
+            end
         end
     end
 end
