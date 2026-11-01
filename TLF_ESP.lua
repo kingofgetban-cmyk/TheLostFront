@@ -1351,6 +1351,11 @@ local findCombatTarget = nil
 local getTargetPosition = nil
 local getPredictedTargetPosition = nil
 
+-- Cache target ต่อ shot event เพื่อให้ทุก hook (raycast + Fire) ใช้ target เดียวกัน
+local _silentAimCachedTarget = nil
+local _silentAimCacheTime = 0
+local SILENT_AIM_CACHE_TTL = 0.08 -- วินาที (ไม่เกิน 1 frame ต่อ shot)
+
 local function makeWritable(t)
     if type(t) == "table" then
         if table.isfrozen and table.isfrozen(t) and setreadonly then
@@ -1448,29 +1453,33 @@ local function hookSpreadModule()
             end
             shotMod.raycast = function(origin, direction, params, ...)
                 if Config.SilentAim and type(findCombatTarget) == "function" and typeof(origin) == "Vector3" then
-                    local sTarget = findCombatTarget({
-                        fov = Config.SilentAimFov or 800,
-                        maxDistance = Config.AimMaxDistance or 1500,
-                        players = true,
-                        drones = Config.AimDrones,
-                        teamCheck = Config.AimTeamCheck,
-                        wallCheck = Config.SilentAimWallCheck,
-                        part = Config.SilentAimPart or Config.AimPart or "Head",
-                    })
-                    if sTarget then
-                        local targetPart = sTarget.part
-                        local targetPos = nil
-                        if Config.PredictionEnabled and type(getPredictedTargetPosition) == "function" then
-                            targetPos = getPredictedTargetPosition(sTarget, origin)
-                        end
-                        if not targetPos and targetPart then
-                            targetPos = targetPart.Position
-                        end
-                        if targetPos then
-                            local newDir = targetPos - origin
-                            local aimRayDir = newDir.Unit * math.max(newDir.Magnitude + 15, (typeof(direction) == "Vector3" and direction.Magnitude) or 500)
-                            return originalRaycast(origin, aimRayDir, params, ...)
-                        end
+                    -- ใช้ cached target ถ้ายังอยู่ใน TTL (เช่น Fire hook เพิ่งเรียก)
+                    local now = tick()
+                    local sTarget = nil
+                    if _silentAimCachedTarget and (now - _silentAimCacheTime) < SILENT_AIM_CACHE_TTL then
+                        sTarget = _silentAimCachedTarget
+                    else
+                        sTarget = findCombatTarget({
+                            fov = Config.SilentAimFov or 800,
+                            maxDistance = Config.AimMaxDistance or 1500,
+                            players = true,
+                            drones = Config.AimDrones,
+                            teamCheck = Config.AimTeamCheck,
+                            wallCheck = Config.SilentAimWallCheck,
+                            part = Config.SilentAimPart or Config.AimPart or "Head",
+                        })
+                        _silentAimCachedTarget = sTarget
+                        _silentAimCacheTime = now
+                    end
+                    if sTarget and sTarget.part and sTarget.part.Parent then
+                        -- ใช้ตำแหน่ง REAL-TIME ของ part โดยตรง (ไม่มี prediction/gravity offset)
+                        -- shotMod.raycast เป็น instant raycast ต้องชนกับ hitbox ปัจจุบัน 100%
+                        local targetPos = sTarget.part.Position
+                        local newDir = targetPos - origin
+                        local rayLen = math.max(newDir.Magnitude + 25,
+                            (typeof(direction) == "Vector3" and direction.Magnitude) or 500)
+                        local aimRayDir = newDir.Unit * rayLen
+                        return originalRaycast(origin, aimRayDir, params, ...)
                     end
                 end
                 return originalRaycast(origin, direction, params, ...)
@@ -1484,23 +1493,32 @@ local function hookSpreadModule()
             end
             shotMod.object.Fire = function(self, origin, direction, velocity, behavior, ...)
                 if Config.SilentAim and type(findCombatTarget) == "function" and typeof(origin) == "Vector3" then
-                    local sTarget = findCombatTarget({
-                        fov = Config.SilentAimFov or 800,
-                        maxDistance = Config.AimMaxDistance or 1500,
-                        players = true,
-                        drones = Config.AimDrones,
-                        teamCheck = Config.AimTeamCheck,
-                        wallCheck = Config.SilentAimWallCheck,
-                        part = Config.SilentAimPart or Config.AimPart or "Head",
-                    })
-                    if sTarget then
-                        local targetPart = sTarget.part
+                    -- ใช้ cached target จาก raycast hook (ถ้ามี) หรือหาใหม่
+                    local now = tick()
+                    local sTarget = nil
+                    if _silentAimCachedTarget and (now - _silentAimCacheTime) < SILENT_AIM_CACHE_TTL then
+                        sTarget = _silentAimCachedTarget
+                    else
+                        sTarget = findCombatTarget({
+                            fov = Config.SilentAimFov or 800,
+                            maxDistance = Config.AimMaxDistance or 1500,
+                            players = true,
+                            drones = Config.AimDrones,
+                            teamCheck = Config.AimTeamCheck,
+                            wallCheck = Config.SilentAimWallCheck,
+                            part = Config.SilentAimPart or Config.AimPart or "Head",
+                        })
+                        _silentAimCachedTarget = sTarget
+                        _silentAimCacheTime = now
+                    end
+                    if sTarget and sTarget.part and sTarget.part.Parent then
+                        -- Visual tracer ใช้ prediction ได้ (ไม่ใช่ instant raycast)
                         local targetPos = nil
                         if Config.PredictionEnabled and type(getPredictedTargetPosition) == "function" then
                             targetPos = getPredictedTargetPosition(sTarget, origin)
                         end
-                        if not targetPos and targetPart then
-                            targetPos = targetPart.Position
+                        if not targetPos then
+                            targetPos = sTarget.part.Position
                         end
                         if targetPos then
                             local newDir = (targetPos - origin).Unit
@@ -2356,16 +2374,8 @@ local currentAimTarget = nil
 
 getTargetPosition = function(target)
     if not target or not target.part or not target.part.Parent then return nil end
-    if target.kind == "player" and target.character then
-        local hrp = target.character:FindFirstChild("HumanoidRootPart")
-        if hrp and target.part.Name == "Head" then
-            -- Stabilize head position relative to HRP physics to eliminate animation/running head-bobbing
-            return hrp.Position + Vector3.new(0, 1.45, 0)
-        end
-        if hrp and (target.part.Name:find("Torso") or target.part.Name == "HumanoidRootPart") then
-            return hrp.Position + Vector3.new(0, 0.2, 0)
-        end
-    end
+    -- ใช้ตำแหน่งจริงของ part โดยตรง ไม่มี hardcoded offset
+    -- เพื่อให้ raycast instant ตรงกับ hitbox จริงของ engine ทุก pose (ยืน/ก้ม/นอน)
     return target.part.Position
 end
 
