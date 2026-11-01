@@ -192,13 +192,9 @@ local Config = {
     MobileAimToggle = false,
     MobileBtnSize = 65,
 
-    -- Silent Aim & Prediction
-    SilentAim = true,
-    SilentAimFov = 800,
-    SilentAimPart = "Head",
-    SilentAimWallCheck = false,
-    PredictionEnabled = true,
-    SilentAimLine = true,   -- แสดงเส้นสีเขียวบางๆ ชี้ไปหา target ที่ lock
+    -- Dropped Weapons Glow ESP
+    WeaponGlow = true,
+    WeaponGlowDist = 50, -- 50 meters
 
     TriggerBot = false,
     TriggerDistance = 150,
@@ -305,7 +301,7 @@ local shotDiag = { fires = 0, applied = 0, noTarget = 0, lastFireAt = 0 }
 local replicateCaptureError = ""
 local shotHookWrapped = nil
 local aimFovCircle = nil
-local silentAimLine = nil   -- เส้นสีเขียวแสดงว่า Silent Aim ล็อกใคร
+local silentAimLine = nil
 local aimBeganConn = nil
 local aimEndedConn = nil
 local aimKeyChangedConn = nil
@@ -980,6 +976,29 @@ PlayersTab:CreateToggle({
     Callback = function(v) Config.Team = v end,
 })
 
+PlayersTab:CreateSection("DROPPED WEAPONS GLOW")
+
+PlayersTab:CreateToggle({
+    Name = "Dropped Weapon Glow",
+    CurrentValue = true,
+    Flag = "tlf_weaponglow",
+    Callback = function(v)
+        Config.WeaponGlow = v
+    end,
+})
+
+PlayersTab:CreateSlider({
+    Name = "Glow Distance",
+    Range = { 10, 150 },
+    Increment = 5,
+    Suffix = " m",
+    CurrentValue = 50,
+    Flag = "tlf_weaponglow_dist",
+    Callback = function(v)
+        Config.WeaponGlowDist = v
+    end,
+})
+
 PlayersTab:CreateSection("FILTERS")
 
 PlayersTab:CreateToggle({
@@ -1058,71 +1077,6 @@ DronesTab:CreateButton({
 })
 
 DronesTab:CreateLabel("Side check: drone owner team vs your team")
-
-CombatTab:CreateSection("SILENT AIM & PREDICTION")
-
-CombatTab:CreateToggle({
-    Name = "Silent Aim (กระสุนล็อกหัว ไม่ขยับกล้อง)",
-    CurrentValue = true,
-    Flag = "tlf_silent_aim",
-    Callback = function(v)
-        Config.SilentAim = v
-    end,
-})
-
-CombatTab:CreateToggle({
-    Name = "Bullet Prediction (คำนวณยิงดักหน้า)",
-    CurrentValue = true,
-    Flag = "tlf_prediction",
-    Callback = function(v)
-        Config.PredictionEnabled = v
-    end,
-})
-
-CombatTab:CreateSlider({
-    Name = "Silent Aim FOV",
-    Range = { 50, 2000 },
-    Increment = 25,
-    Suffix = " px",
-    CurrentValue = 800,
-    Flag = "tlf_silent_fov",
-    Callback = function(v)
-        Config.SilentAimFov = v
-    end,
-})
-
-CombatTab:CreateDropdown({
-    Name = "Silent Aim Target Part",
-    Options = { "Head", "Torso", "Nearest" },
-    CurrentOption = { "Head" },
-    MultipleOptions = false,
-    Flag = "tlf_silent_part",
-    Callback = function(option)
-        local v = type(option) == "table" and option[1] or option
-        Config.SilentAimPart = tostring(v or "Head")
-    end,
-})
-
-CombatTab:CreateToggle({
-    Name = "Silent Aim Wall Check (เช็กกำแพง)",
-    CurrentValue = false,
-    Flag = "tlf_silent_wallcheck",
-    Callback = function(v)
-        Config.SilentAimWallCheck = v
-    end,
-})
-
-CombatTab:CreateToggle({
-    Name = "Silent Aim Line (เส้นชี้ target)",
-    CurrentValue = true,
-    Flag = "tlf_silent_aimline",
-    Callback = function(v)
-        Config.SilentAimLine = v
-        if not v and silentAimLine then
-            silentAimLine.Visible = false
-        end
-    end,
-})
 
 CombatTab:CreateSection("AIMBOT (CAMERA / MOUSE)")
 
@@ -1365,29 +1319,13 @@ local findCombatTarget = nil
 local getTargetPosition = nil
 local getPredictedTargetPosition = nil
 
--- Cache target ต่อ shot event เพื่อให้ทุก hook (raycast + Fire) ใช้ target เดียวกัน
-local _silentAimCachedTarget = nil
-local _silentAimCacheTime = 0
-local SILENT_AIM_CACHE_TTL = 0.08 -- วินาที (ไม่เกิน 1 frame ต่อ shot)
-
-local function makeWritable(t)
-    if type(t) == "table" then
-        if table.isfrozen and table.isfrozen(t) and setreadonly then
-            pcall(setreadonly, t, false)
-        elseif setreadonly then
-            pcall(setreadonly, t, false)
-        end
-    end
-end
-
 local function hookSpreadModule()
     local okM, shotMod = pcall(function()
         local mod = ReplicatedStorage:FindFirstChild("lIIIlllIIlIllIlllllIIllllIlllIlIlIIlIllIllllIIlIllIlllllIllI")
         return mod and require(mod) or nil
     end)
     if okM and type(shotMod) == "table" then
-        -- Reset originals ก่อนทุกครั้ง เพื่อให้ unhook เก่าออกแล้ว hook ใหม่สะอาด
-        -- (ป้องกัน hook ซ้อน hook เวลา script รันซ้ำ)
+        -- Reset originals clean
         if originalMakeSpread then
             pcall(function() shotMod.makeSpread = originalMakeSpread end)
             originalMakeSpread = nil
@@ -1404,38 +1342,12 @@ local function hookSpreadModule()
             pcall(function() shotMod.object.Fire = originalFastCastFire end)
             originalFastCastFire = nil
         end
-        -- 1. Hook makeSpread (Visual bullet direction)
+        -- 1. Hook makeSpread (Only for NoSpread)
         if type(shotMod.makeSpread) == "function" then
             if not originalMakeSpread then
                 originalMakeSpread = shotMod.makeSpread
             end
             shotMod.makeSpread = function(min_s, max_s, origin, direction, ...)
-                if Config.SilentAim and type(findCombatTarget) == "function" then
-                    local cam = Workspace.CurrentCamera
-                    local shootOrigin = (typeof(origin) == "Vector3" and origin) or (cam and cam.CFrame.Position)
-                    local sTarget = findCombatTarget({
-                        fov = Config.SilentAimFov or 800,
-                        maxDistance = Config.AimMaxDistance or 1500,
-                        players = true,
-                        drones = Config.AimDrones,
-                        teamCheck = Config.AimTeamCheck,
-                        wallCheck = Config.SilentAimWallCheck,
-                        part = Config.SilentAimPart or Config.AimPart or "Head",
-                    })
-                    if sTarget and shootOrigin then
-                        local predPos = nil
-                        if Config.PredictionEnabled and type(getPredictedTargetPosition) == "function" then
-                            predPos = getPredictedTargetPosition(sTarget, shootOrigin)
-                        end
-                        if not predPos and sTarget.part then
-                            predPos = sTarget.part.Position
-                        end
-                        if predPos then
-                            return (predPos - shootOrigin).Unit
-                        end
-                    end
-                end
-
                 if Config.NoSpread and direction then
                     return direction
                 end
@@ -1443,130 +1355,22 @@ local function hookSpreadModule()
             end
         end
 
-        -- 2. Hook calculateDirection
-        if type(shotMod.calculateDirection) == "function" then
-            if not originalCalculateDirection then
-                originalCalculateDirection = shotMod.calculateDirection
-            end
-            shotMod.calculateDirection = function(origin, targetPos, ...)
-                if Config.SilentAim and type(findCombatTarget) == "function" then
-                    local cam = Workspace.CurrentCamera
-                    local shootOrigin = (typeof(origin) == "Vector3" and origin) or (cam and cam.CFrame.Position)
-                    local sTarget = findCombatTarget({
-                        fov = Config.SilentAimFov or 800,
-                        maxDistance = Config.AimMaxDistance or 1500,
-                        players = true,
-                        drones = Config.AimDrones,
-                        teamCheck = Config.AimTeamCheck,
-                        wallCheck = Config.SilentAimWallCheck,
-                        part = Config.SilentAimPart or Config.AimPart or "Head",
-                    })
-                    if sTarget and shootOrigin then
-                        local predPos = nil
-                        if Config.PredictionEnabled and type(getPredictedTargetPosition) == "function" then
-                            predPos = getPredictedTargetPosition(sTarget, shootOrigin)
-                        end
-                        if not predPos and sTarget.part then
-                            predPos = sTarget.part.Position
-                        end
-                        if predPos then
-                            return (predPos - shootOrigin).Unit
-                        end
-                    end
-                end
-                return originalCalculateDirection(origin, targetPos, ...)
-            end
+        -- 2. Restore calculateDirection (Unchanged - original game logic)
+        if originalCalculateDirection then
+            pcall(function() shotMod.calculateDirection = originalCalculateDirection end)
+            originalCalculateDirection = nil
         end
 
-        -- 3. Hook raycast (HIT REGISTRATION CORE - แดเมจจริงของกระสุน)
-        if type(shotMod.raycast) == "function" then
-            if not originalRaycast then
-                originalRaycast = shotMod.raycast
-            end
-            shotMod.raycast = function(origin, direction, params, ...)
-                if Config.SilentAim and type(findCombatTarget) == "function" and typeof(origin) == "Vector3" then
-                    -- ใช้ cached target ถ้ายังอยู่ใน TTL (เช่น Fire hook เพิ่งเรียก)
-                    local now = tick()
-                    local sTarget = nil
-                    if _silentAimCachedTarget and (now - _silentAimCacheTime) < SILENT_AIM_CACHE_TTL then
-                        sTarget = _silentAimCachedTarget
-                    else
-                        sTarget = findCombatTarget({
-                            fov = Config.SilentAimFov or 800,
-                            maxDistance = Config.AimMaxDistance or 1500,
-                            players = true,
-                            drones = Config.AimDrones,
-                            teamCheck = Config.AimTeamCheck,
-                            wallCheck = Config.SilentAimWallCheck,
-                            part = Config.SilentAimPart or Config.AimPart or "Head",
-                        })
-                        _silentAimCachedTarget = sTarget
-                        _silentAimCacheTime = now
-                    end
-                    if sTarget and sTarget.part and sTarget.part.Parent then
-                        -- ใช้ตำแหน่ง REAL-TIME ของ part โดยตรง (ไม่มี prediction/gravity offset)
-                        -- shotMod.raycast เป็น instant raycast ต้องชนกับ hitbox ปัจจุบัน 100%
-                        local targetPos = sTarget.part.Position
-                        local newDir = targetPos - origin
-                        local rayLen = math.max(newDir.Magnitude + 25,
-                            (typeof(direction) == "Vector3" and direction.Magnitude) or 500)
-                        local aimRayDir = newDir.Unit * rayLen
-                        return originalRaycast(origin, aimRayDir, params, ...)
-                    end
-                end
-                return originalRaycast(origin, direction, params, ...)
-            end
+        -- 3. Restore raycast (Unchanged - original game logic)
+        if originalRaycast then
+            pcall(function() shotMod.raycast = originalRaycast end)
+            originalRaycast = nil
         end
 
-        -- 4. Hook FastCast:Fire (VISUAL PROJECTILE & TRACER CORE - ให้หัวกระสุนเลี้ยวตามศัตรูตาเห็น)
-        if type(shotMod.object) == "table" and type(shotMod.object.Fire) == "function" then
-            if not originalFastCastFire then
-                originalFastCastFire = shotMod.object.Fire
-            end
-            shotMod.object.Fire = function(self, origin, direction, velocity, behavior, ...)
-                if Config.SilentAim and type(findCombatTarget) == "function" and typeof(origin) == "Vector3" then
-                    -- ใช้ cached target จาก raycast hook (ถ้ามี) หรือหาใหม่
-                    local now = tick()
-                    local sTarget = nil
-                    if _silentAimCachedTarget and (now - _silentAimCacheTime) < SILENT_AIM_CACHE_TTL then
-                        sTarget = _silentAimCachedTarget
-                    else
-                        sTarget = findCombatTarget({
-                            fov = Config.SilentAimFov or 800,
-                            maxDistance = Config.AimMaxDistance or 1500,
-                            players = true,
-                            drones = Config.AimDrones,
-                            teamCheck = Config.AimTeamCheck,
-                            wallCheck = Config.SilentAimWallCheck,
-                            part = Config.SilentAimPart or Config.AimPart or "Head",
-                        })
-                        _silentAimCachedTarget = sTarget
-                        _silentAimCacheTime = now
-                    end
-                    if sTarget and sTarget.part and sTarget.part.Parent then
-                        -- Visual tracer ใช้ prediction ได้ (ไม่ใช่ instant raycast)
-                        local targetPos = nil
-                        if Config.PredictionEnabled and type(getPredictedTargetPosition) == "function" then
-                            targetPos = getPredictedTargetPosition(sTarget, origin)
-                        end
-                        if not targetPos then
-                            targetPos = sTarget.part.Position
-                        end
-                        if targetPos then
-                            local newDir = (targetPos - origin).Unit
-                            if typeof(direction) == "Vector3" then
-                                direction = newDir * direction.Magnitude
-                            else
-                                direction = newDir
-                            end
-                            if typeof(velocity) == "Vector3" then
-                                velocity = newDir * velocity.Magnitude
-                            end
-                        end
-                    end
-                end
-                return originalFastCastFire(self, origin, direction, velocity, behavior, ...)
-            end
+        -- 4. Restore FastCast:Fire (Unchanged - original game logic)
+        if originalFastCastFire and type(shotMod.object) == "table" then
+            pcall(function() shotMod.object.Fire = originalFastCastFire end)
+            originalFastCastFire = nil
         end
     end
 end
@@ -1857,7 +1661,7 @@ WeaponTab:CreateToggle({
 WeaponTab:CreateSection("AMMO & PICKUP")
 
 WeaponTab:CreateToggle({
-    Name = "Auto Pickup Ammo (เดินใกล้เก็บกระสุนเอง)",
+    Name = "Auto Pickup Ammo",
     CurrentValue = true,
     Flag = "tlf_auto_pickup_ammo",
     Callback = function(v)
@@ -1937,6 +1741,81 @@ task.spawn(function()
     while true do
         pcall(RunAutoPickup)
         task.wait(0.25)
+    end
+end)
+
+-- ============================================================
+-- DROPPED WEAPONS GLOW (50 METERS)
+-- ============================================================
+local function updateWeaponGlow()
+    if not Config.WeaponGlow then
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("Highlight") and obj.Name == "TLF_Weapon_Glow" then
+                pcall(function() obj:Destroy() end)
+            end
+        end
+        return
+    end
+
+    local char = LP.Character
+    local root = char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso"))
+    local myPos = (root and root.Position) or (Workspace.CurrentCamera and Workspace.CurrentCamera.CFrame.Position)
+    if not myPos then return end
+
+    local maxStuds = (Config.WeaponGlowDist or 50) * 3.3 -- 50m = ~165 studs
+
+    local searchContainers = {}
+    local debris = Workspace:FindFirstChild("debris")
+    if debris then
+        local dropped = debris:FindFirstChild("dropped")
+        if dropped then table.insert(searchContainers, dropped) end
+    end
+    local itemModels = Workspace:FindFirstChild("itemModels")
+    if itemModels then table.insert(searchContainers, itemModels) end
+
+    for _, container in ipairs(searchContainers) do
+        for _, item in ipairs(container:GetChildren()) do
+            if item:IsA("Model") or item:IsA("BasePart") then
+                local itemPos = nil
+                if item:IsA("BasePart") then
+                    itemPos = item.Position
+                elseif item.PrimaryPart then
+                    itemPos = item.PrimaryPart.Position
+                else
+                    local fPart = item:FindFirstChildWhichIsA("BasePart")
+                    if fPart then itemPos = fPart.Position end
+                end
+
+                if itemPos then
+                    local dist = (itemPos - myPos).Magnitude
+                    local existingHl = item:FindFirstChild("TLF_Weapon_Glow")
+                    if dist <= maxStuds then
+                        if not existingHl then
+                            local hl = Instance.new("Highlight")
+                            hl.Name = "TLF_Weapon_Glow"
+                            hl.Adornee = item
+                            hl.FillColor = Color3.fromRGB(255, 215, 0) -- Gold glow
+                            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                            hl.FillTransparency = 0.4
+                            hl.OutlineTransparency = 0
+                            pcall(function() hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop end)
+                            hl.Parent = item
+                        end
+                    else
+                        if existingHl then
+                            pcall(function() existingHl:Destroy() end)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+task.spawn(function()
+    while true do
+        pcall(updateWeaponGlow)
+        task.wait(0.35)
     end
 end)
 
@@ -2406,8 +2285,8 @@ local currentAimTarget = nil
 
 getTargetPosition = function(target)
     if not target or not target.part or not target.part.Parent then return nil end
-    -- ใช้ตำแหน่งจริงของ part โดยตรง ไม่มี hardcoded offset
-    -- เพื่อให้ raycast instant ตรงกับ hitbox จริงของ engine ทุก pose (ยืน/ก้ม/นอน)
+    -- Direct part position without hardcoded offset
+    -- Aligns instant raycast to engine hitbox across all poses (stand/crouch/prone)
     return target.part.Position
 end
 
@@ -2627,17 +2506,6 @@ local function ensureAimVisuals()
             aimFovCircle = d
         end)
     end
-    if not silentAimLine then
-        pcall(function()
-            local l = DrawingLib.new("Line")
-            l.Thickness = 1        -- บางมากๆ
-            l.Visible = false
-            l.ZIndex = 997
-            l.Color = Color3.fromRGB(0, 255, 80)   -- เขียวสด
-            l.Transparency = 0.35  -- โปร่งนิดนึงให้ดู clean
-            silentAimLine = l
-        end)
-    end
 end
 
 local function updateAimVisuals()
@@ -2653,43 +2521,6 @@ local function updateAimVisuals()
             aimFovCircle.Color = held and Color3.fromRGB(80, 255, 120) or Color3.fromRGB(90, 160, 90)
             aimFovCircle.Position = Vector2.new(CAM.ViewportSize.X / 2, CAM.ViewportSize.Y / 2)
             aimFovCircle.Radius = Config.AimFov
-        end
-    end
-
-    -- Silent Aim Line: เส้นสีเขียวบางๆ จากกลางจอไปหา target ที่ lock
-    if silentAimLine then
-        local showLine = Config.SilentAim and Config.SilentAimLine and CAM
-        local lineDrawn = false
-        if showLine and type(findCombatTarget) == "function" then
-            -- Poll target ทุก frame (ไม่พึ่ง cache ที่หมดอายุเร็ว)
-            local t = nil
-            pcall(function()
-                t = findCombatTarget({
-                    fov = Config.SilentAimFov or 800,
-                    maxDistance = Config.AimMaxDistance or 1500,
-                    players = true,
-                    drones = Config.AimDrones,
-                    teamCheck = Config.AimTeamCheck,
-                    wallCheck = false,   -- line ไม่เช็กกำแพง แค่ชี้ว่า lock ใคร
-                    part = Config.SilentAimPart or Config.AimPart or "Head",
-                })
-            end)
-            if t and t.part and t.part.Parent then
-                pcall(function()
-                    local targetPos = t.part.Position
-                    local sp, onScreen = CAM:WorldToViewportPoint(targetPos)
-                    if onScreen then
-                        local center = Vector2.new(CAM.ViewportSize.X / 2, CAM.ViewportSize.Y / 2)
-                        silentAimLine.From = center
-                        silentAimLine.To   = Vector2.new(sp.X, sp.Y)
-                        silentAimLine.Visible = true
-                        lineDrawn = true
-                    end
-                end)
-            end
-        end
-        if not lineDrawn then
-            silentAimLine.Visible = false
         end
     end
 end
@@ -3316,6 +3147,11 @@ local function CleanupAll()
     end
     for m, pool in pairs(dronePools) do
         destroyDronePool(pool)
+    end
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Highlight") and obj.Name == "TLF_Weapon_Glow" then
+            pcall(function() obj:Destroy() end)
+        end
     end
     pools = {}
     dronePools = {}
