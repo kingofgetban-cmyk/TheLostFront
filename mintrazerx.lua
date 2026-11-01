@@ -1,19 +1,17 @@
 --[[
-    ==============================================================================
-    MINTRAZERX ULTRA-SECURE HYBRID RUNTIME CONTAINER
-    Engine: NIST FIPS-197 AES-128-CTR + FIPS-180-4 SHA-256 + Heavy CFF State Machine
-    Anti-Tamper: SHA-256 Cryptographic Checksum
-    Protected by Made by valexcryzer
-    ==============================================================================
+    MINTRAZERX SECURE LOADER CONTAINER
+    Engine: ChaCha20-PolyXOR-VM Bytecode Architecture
+    Integrity: FNV-1a Hash Verified
+    Made by valexcryzer
 ]]
 return (function(...)
-    local _floor = math.floor
-    local _byte = string.byte
-    local _char = string.char
-    local _sub = string.sub
-    local _mod = 4294967296
+    local _0xfloor = math.floor
+    local _0xbyte = string.byte
+    local _0xchar = string.char
+    local _0xsub = string.sub
+    local _0xmod = 4294967296
 
-    local _bx = (bit and bit.bxor) or (bit32 and bit32.bxor) or function(a, b)
+    local _0xbx = (bit and bit.bxor) or (bit32 and bit32.bxor) or function(a, b)
         local r, m = 0, 1
         while a > 0 or b > 0 do
             local ra, rb = a % 2, b % 2
@@ -25,7 +23,7 @@ return (function(...)
         return r
     end
 
-    local _ba = (bit and bit.band) or (bit32 and bit32.band) or function(a, b)
+    local _0xba = (bit and bit.band) or (bit32 and bit32.band) or function(a, b)
         local r, m = 0, 1
         while a > 0 and b > 0 do
             local ra, rb = a % 2, b % 2
@@ -37,686 +35,450 @@ return (function(...)
         return r
     end
 
-    local _bnot = (bit and bit.bnot) or (bit32 and bit32.bnot) or function(a)
-        return (_mod - 1 - a) % _mod
+    local _0xrs = (bit and bit.rshift) or (bit32 and bit32.rshift) or function(a, n)
+        return _0xfloor(a / (2 ^ n))
     end
 
-    local _rs = (bit and bit.rshift) or (bit32 and bit32.rshift) or function(a, n)
-        return _floor(a / (2 ^ n))
+    local _0xls = (bit and bit.lshift) or (bit32 and bit32.lshift) or function(a, n)
+        return (a * (2 ^ n)) % _0xmod
     end
 
-    local _ls = (bit and bit.lshift) or (bit32 and bit32.lshift) or function(a, n)
-        return (a * (2 ^ n)) % _mod
+    local _0xrl = (bit and bit.rol) or (bit32 and bit32.rol) or function(v, n)
+        return (_0xls(v, n) + _0xrs(v, 32 - n)) % _0xmod
     end
 
-    local _ror = (bit and bit.ror) or (bit32 and bit32.ror) or function(a, n)
-        return (_rs(a, n) + _ls(a, 32 - n)) % _mod
+    local function _0xmul32(a, b)
+        local a_hi = _0xfloor(a / 65536)
+        local a_lo = a % 65536
+        local b_hi = _0xfloor(b / 65536)
+        local b_lo = b % 65536
+        local lo = a_lo * b_lo
+        local mid = (a_hi * b_lo + a_lo * b_hi) % 65536
+        return (lo + mid * 65536) % _0xmod
     end
 
-    -- AES S-Box (FIPS-197)
-    local _0x_sb = {
-        0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
-        0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
-        0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
-        0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
-        0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84,
-        0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf,
-        0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85, 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8,
-        0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5, 0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2,
-        0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17, 0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73,
-        0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88, 0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb,
-        0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c, 0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79,
-        0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9, 0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08,
-        0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a,
-        0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e,
-        0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
-        0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
+    -- Control Flow Flattening (CFF) state machine
+    local _0xcff_state = 0x51
+    local _0xdict = "YdSXOKyC2BIGEhF95nPsMqoLZecg6TU3pwArJb4DNfkWjml/710QzVt+iHvR8xua"
+    local _0xchunks = {
+        "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"
     }
-    local _0x_rcon = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36 }
+    local _0xraw = table.concat(_0xchunks)
+    local _0xchk = 841118459
+    local _0xdec = {}
+    local _0xsrc = ""
 
-    -- SHA-256 Round Constants (FIPS-180-4)
-    local _0x_sha_k = {
-        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
-    }
-
-    local function _xtime(a)
-        return a >= 128 and _bx((a * 2) % 256, 0x1B) or (a * 2)
+    local _0xmap = {}
+    for i = 1, #_0xdict do
+        _0xmap[_0xbyte(_0xdict, i)] = i - 1
     end
 
-    local function _expand_key(key)
-        local w = {}
-        for i = 1, 16 do w[i] = key[i] end
-        local rIdx = 1
-        for i = 17, 176, 4 do
-            local b0, b1, b2, b3 = w[i - 4], w[i - 3], w[i - 2], w[i - 1]
-            if (i - 1) % 16 == 0 then
-                local rot = b0
-                b0 = _0x_sb[b1 + 1]
-                b1 = _0x_sb[b2 + 1]
-                b2 = _0x_sb[b3 + 1]
-                b3 = _0x_sb[rot + 1]
-                b0 = _bx(b0, _0x_rcon[rIdx])
-                rIdx = rIdx + 1
-            end
-            w[i] = _bx(w[i - 16], b0)
-            w[i + 1] = _bx(w[i - 15], b1)
-            w[i + 2] = _bx(w[i - 14], b2)
-            w[i + 3] = _bx(w[i - 13], b3)
-        end
-        return w
+    local _0xkey = { 0x5a1f8b2c, 0x3d7e9f01, 0x84b2c1e0, 0x93f4a5b6, 0xc7d8e9fa, 0x12345678, 0xaabbccdd, 0xeeff0011 }
+    local _0xnon = { 0x7890abcd, 0xef123456, 0x9a8b7c6d }
+
+    local function _0xqr(st, a, b, c, d)
+        st[a] = (st[a] + st[b]) % _0xmod
+        st[d] = _0xrl(_0xbx(st[d], st[a]), 16)
+        st[c] = (st[c] + st[d]) % _0xmod
+        st[b] = _0xrl(_0xbx(st[b], st[c]), 12)
+        st[a] = (st[a] + st[b]) % _0xmod
+        st[d] = _0xrl(_0xbx(st[d], st[a]), 8)
+        st[c] = (st[c] + st[d]) % _0xmod
+        st[b] = _0xrl(_0xbx(st[b], st[c]), 7)
     end
 
-    local function _aes_block(block, rk)
-        local st = {}
-        for i = 1, 16 do st[i] = _bx(block[i], rk[i]) end
-        for round = 1, 9 do
-            local rkOff = round * 16
-            for i = 1, 16 do st[i] = _0x_sb[st[i] + 1] end
-            local s2, s6, s10, s14 = st[2], st[6], st[10], st[14]
-            st[2], st[6], st[10], st[14] = s6, s10, s14, s2
-            local s3, s7, s11, s15 = st[3], st[7], st[11], st[15]
-            st[3], st[7], st[11], st[15] = s11, s15, s3, s7
-            local s4, s8, s12, s16 = st[4], st[8], st[12], st[16]
-            st[4], st[8], st[12], st[16] = s16, s4, s8, s12
-
-            for c = 0, 3 do
-                local o = c * 4
-                local a0, a1, a2, a3 = st[o + 1], st[o + 2], st[o + 3], st[o + 4]
-                local t = _bx(_bx(a0, a1), _bx(a2, a3))
-                st[o + 1] = _bx(_bx(a0, _xtime(_bx(a0, a1))), _bx(t, rk[rkOff + o + 1]))
-                st[o + 2] = _bx(_bx(a1, _xtime(_bx(a1, a2))), _bx(t, rk[rkOff + o + 2]))
-                st[o + 3] = _bx(_bx(a2, _xtime(_bx(a2, a3))), _bx(t, rk[rkOff + o + 3]))
-                st[o + 4] = _bx(_bx(a3, _xtime(_bx(a3, a0))), _bx(t, rk[rkOff + o + 4]))
-            end
+    local function _0xblock(k, cnt, non)
+        local st = {
+            0x61707865, 0x3320646e, 0x79622d32, 0x6b206574,
+            k[1], k[2], k[3], k[4], k[5], k[6], k[7], k[8],
+            cnt, non[1], non[2], non[3]
+        }
+        local wk = {}
+        for i = 1, 16 do wk[i] = st[i] end
+        for i = 1, 10 do
+            _0xqr(wk, 1, 5, 9, 13)
+            _0xqr(wk, 2, 6, 10, 14)
+            _0xqr(wk, 3, 7, 11, 15)
+            _0xqr(wk, 4, 8, 12, 16)
+            _0xqr(wk, 1, 6, 11, 16)
+            _0xqr(wk, 2, 7, 12, 13)
+            _0xqr(wk, 3, 8, 9, 14)
+            _0xqr(wk, 4, 5, 10, 15)
         end
-
-        for i = 1, 16 do st[i] = _0x_sb[st[i] + 1] end
-        local r10_2, r10_6, r10_10, r10_14 = st[2], st[6], st[10], st[14]
-        st[2], st[6], st[10], st[14] = r10_6, r10_10, r10_14, r10_2
-        local r10_3, r10_7, r10_11, r10_15 = st[3], st[7], st[11], st[15]
-        st[3], st[7], st[11], st[15] = r10_11, r10_15, r10_3, r10_7
-        local r10_4, r10_8, r10_12, r10_16 = st[4], st[8], st[12], st[16]
-        st[4], st[8], st[12], st[16] = r10_16, r10_4, r10_8, r10_12
-
         local out = {}
-        for i = 1, 16 do out[i] = _bx(st[i], rk[160 + i]) end
+        for i = 1, 16 do
+            local val = (wk[i] + st[i]) % _0xmod
+            out[(i - 1) * 4 + 1] = _0xba(val, 255)
+            out[(i - 1) * 4 + 2] = _0xba(_0xrs(val, 8), 255)
+            out[(i - 1) * 4 + 3] = _0xba(_0xrs(val, 16), 255)
+            out[(i - 1) * 4 + 4] = _0xba(_0xrs(val, 24), 255)
+        end
         return out
     end
 
-    local function _sha256_verify(bytes, expectedHex)
-        local H0, H1, H2, H3, H4, H5, H6, H7 =
-            0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-            0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
-
-        local pad = {}
-        for i = 1, #bytes do pad[i] = bytes[i] end
-        local msgLen = #pad
-        table.insert(pad, 0x80)
-        while (#pad % 64) ~= 56 do table.insert(pad, 0x00) end
-
-        local bitLen = msgLen * 8
-        local hiLen = _floor(bitLen / _mod)
-        local loLen = bitLen % _mod
-        table.insert(pad, _ba(_rs(hiLen, 24), 255))
-        table.insert(pad, _ba(_rs(hiLen, 16), 255))
-        table.insert(pad, _ba(_rs(hiLen, 8), 255))
-        table.insert(pad, _ba(hiLen, 255))
-        table.insert(pad, _ba(_rs(loLen, 24), 255))
-        table.insert(pad, _ba(_rs(loLen, 16), 255))
-        table.insert(pad, _ba(_rs(loLen, 8), 255))
-        table.insert(pad, _ba(loLen, 255))
-
-        local W = {}
-        for chunk = 1, #pad, 64 do
-            for t = 0, 15 do
-                local o = chunk + t * 4
-                W[t] = _ls(pad[o], 24) + _ls(pad[o + 1], 16) + _ls(pad[o + 2], 8) + pad[o + 3]
+    while _0xcff_state ~= 0x00 do
+        if _0xcff_state == 0x51 then
+            -- Integrity Check: 32-bit FNV-1a Hash Verification
+            local h = 2166136261
+            for i = 1, #_0xraw do
+                h = _0xbx(h, _0xbyte(_0xraw, i))
+                h = _0xmul32(h, 16777619)
             end
-            for t = 16, 63 do
-                local s0 = _bx(_bx(_ror(W[t - 15], 7), _ror(W[t - 15], 18)), _rs(W[t - 15], 3))
-                local s1 = _bx(_bx(_ror(W[t - 2], 17), _ror(W[t - 2], 19)), _rs(W[t - 2], 10))
-                W[t] = (W[t - 16] + s0 + W[t - 7] + s1) % _mod
+            if h ~= _0xchk then
+                return nil
             end
+            _0xcff_state = 0x62
 
-            local a, b, c, d, e, f, g, h = H0, H1, H2, H3, H4, H5, H6, H7
-            for t = 0, 63 do
-                local S1 = _bx(_bx(_ror(e, 6), _ror(e, 11)), _ror(e, 25))
-                local ch = _bx(_ba(e, f), _ba(_bnot(e), g))
-                local temp1 = (h + S1 + ch + _0x_sha_k[t + 1] + W[t]) % _mod
-                local S0 = _bx(_bx(_ror(a, 2), _ror(a, 13)), _ror(a, 22))
-                local maj = _bx(_bx(_ba(a, b), _ba(a, c)), _ba(b, c))
-                local temp2 = (S0 + maj) % _mod
+        elseif _0xcff_state == 0x62 then
+            -- Custom Alphabet Base64 Poly-decoding
+            local clean = _0xraw:gsub("=", "")
+            local len = #clean
+            local i = 1
+            while i <= len do
+                local c1 = _0xmap[_0xbyte(clean, i)] or 0
+                local c2 = _0xmap[_0xbyte(clean, i + 1)] or 0
+                local c3 = _0xmap[_0xbyte(clean, i + 2)] or 0
+                local c4 = _0xmap[_0xbyte(clean, i + 3)] or 0
 
-                h = g
-                g = f
-                f = e
-                e = (d + temp1) % _mod
-                d = c
-                c = b
-                b = a
-                a = (temp1 + temp2) % _mod
-            end
+                local b1 = _0xba(_0xls(c1, 2) + _0xrs(c2, 4), 255)
+                table.insert(_0xdec, b1)
 
-            H0 = (H0 + a) % _mod
-            H1 = (H1 + b) % _mod
-            H2 = (H2 + c) % _mod
-            H3 = (H3 + d) % _mod
-            H4 = (H4 + e) % _mod
-            H5 = (H5 + f) % _mod
-            H6 = (H6 + g) % _mod
-            H7 = (H7 + h) % _mod
-        end
-
-        local function hexW(w) return string.format("%08x", w) end
-        local computed = hexW(H0) .. hexW(H1) .. hexW(H2) .. hexW(H3) .. hexW(H4) .. hexW(H5) .. hexW(H6) .. hexW(H7)
-        return computed == expectedHex
-    end
-
-    -- ==============================================================================
-    -- HEAVY CONTROL FLOW FLATTENING (CFF) STATE DISPATCHER
-    -- ==============================================================================
-    local _0x_key = { 0x70, 0x3a, 0xb, 0xc2, 0xc3, 0x45, 0x43, 0x6e, 0x15, 0x60, 0x61, 0x45, 0x20, 0x2d, 0x36, 0xd0 }
-    local _0x_iv  = { 0x1, 0xb9, 0x79, 0xad, 0xc7, 0xbb, 0x15, 0x95, 0x5f, 0x7a, 0xfc, 0x24, 0x95, 0x73, 0x10, 0x62 }
-    local _0x_sha = "843f118ccc5556dbf1aea84ad4cdb5ae218627878ad8fb2ec28d3c44b8c0d1d0"
-    local _0x_chunks = {
-        "cc90709054607b1f01d6c9508ee067aa652c28836fea29bf3f4848d3b5a8bc3ddf827e375328e196e2d367e6ca3d0e150f4c0218806c6858753413cc",
-        "ea7a94c8c7659e420e952af41d5bc5f7c3021260dd4411c83fe7c4de2e31ffb52aa85c734a849e1c16b5ab77f5a3c586b9019c7b2c5a07c09c4c5a51",
-        "b41138fb1538a8014e03195d7f06195b7fb11527f7de7b09fd695735230fd1e5c7f8d42a2157b3caa9eb593d59370c0d34064c10dbfc2f7396c270df",
-        "221c985971ee7a22e7ad9704e4adce9abea3af8f42304f4cf255241b4368308f938ec9d028caaf6d6e266647ab7552237da5a2ed50bd31a9a9cbed2f",
-        "f9030757ead2640799f17208afe96b05f2cf1e6a10341d0b0df29ec50ba2ba015cb796920154a77552b034fb97805835b969fabdffc41ce6c1db08e3",
-        "28ce15c1ee5f13f91f8cd5d24f218e0896f76f6c317ba3408c1e038dd24ce4be2d0484e5c276941fa1082d5977edbc55264c685f57b7b4318c409ca2",
-        "de1b54d5b9c85974dc14469b26812778fdb09da6e795abdd9b7165850c113054953a91b031a104d6e18643ea8b958cdfc966bad97166e03527b5c41e",
-        "c57adb08f24187962775df00b00414d3dbea42b5f388c80ee1b556434b52cf281d1205ca63474c128bcd9949c97bcc50267751a0f3124c3a1af9790d",
-        "b4b9090c689de7dddbd5919f922db4e23bbfaaf579dd021858771dda2cffadea50340efeace3f62d155857d0500eb0dd07393b4c58590ad1bd289291",
-        "4c6c95d73b1b66e2f9420e494c8c0324a6e7e425a1b09855cdf6013ce2c2a593d8054654a6db441e5cbfc12c04c29ab9a328696249df64c3b37f2522",
-        "3a19dbf8c6435635e1b95f969fa94bff36f56a88f891bdae56e44f79dda71c8cee04cb1be58f2d1ae29eb00cab165c8bd1db273997c6dcd74f066200",
-        "a90d688b981f9a397a0494d9aed0f95ae9840e153f6792de70f353a40e08a756d5baa74d05bf3fb08f88f89c234c767677ba0fc5666e018c2b5cd91e",
-        "a383693ef5f8db20468945fb515c4d926346510212dc51f09579381b8257d4485a0c233354ec4458a7c8ed5dee3432db2e4cb23decca4e0d3acfa150",
-        "4d6b29336b4e7230c8390ae7917788dbccaa7ce9312f4351b52496cfd30beab8b4c5a9e7438957a73f343cc313d99cb28e64c865b5809ba54ec54949",
-        "b67069b7ef5aa509a32114e06435f3d0ce1f52038c010bb08d4288ba2af0c5040ae0a76a002234f7cad3582f55cc92c708d360035db2eebd6d289d89",
-        "33151251a812e61741f8d3c6150defbb63a9db41ba29a40ab4d4ecee4a0a179028ae3a397ebdd164b261b1217f7b3adf707eb261a3a5e350ff93624a",
-        "b28fef7b30b66b5044d360b4e81a02b08efdb60b2623295eb0ef5bdc0c3c1fe53ff09c28a426006782a336f09c2463d3ce1a2395bcd322a98432f7c7",
-        "3088d3a299ecee683ad6f0d5a7294c273ca6378c560156567b3323a0c466d7fedce3fea892e9d9640528f565ef874d350ebd627630ced37bac560762",
-        "3d677f2c29744e1f5d3975ba20d78e47aeed8c80d52ec1314ea0a88aaaf7ad7dd25107c234ed7814157ab4be233ae981926f8bf92857cea1e61df117",
-        "42a32c9062778020cad17b6af4aea001b284251f78e8ae1b720644358ec96207f69719d227d6dcde4595591f1f514e14f2dc32bc26fe78a9665e0a85",
-        "d953245d3f7ba01dbc09b59a006c2cbe43fe07a4b4102a6391c6873fc6653e9311cc0de014b9b4a334b1cc139338f3c2f2b5629c94dcd35f1a575ff1",
-        "9713737f7cd4b60789f81ce308bdebd74cbba519f3f202dddcfd0f9f9d7825b3770cf289b92ca0363eb8470be5a8fa21f3551e239595775a7064e067",
-        "62865e25e1ef89c7faf66e675887b040aea206df6e77fb6a261ecef056cba6763a26cad45cddd54f9bb2727bc0b8621817109fed23c11f6eb5d8c2f7",
-        "45b84091a313e09d3a660f7a4fc11fc610036749f3ea9d241677cff0a3fd3c6ac9729c26b1e9eb9fe405f7f6e0ba021dddc8994eeceb68c65224a25b",
-        "b44bc216340921b2f7041c55829672f7b3ded05248a119fb5df215fc4c97210212c7f5dc1656284cd8562e987595c96d6d638ae808ca868cb75a3392",
-        "514ccbed33ed1770e4ad760c7e7f33f7b39b1a3bb10888cfec2d32269b8907610a23addb9f6ac8f6bbd6e7c0fa5c35ef201f09307bbe2973687caf96",
-        "b5d48bfd3b301de968c598860a6158d8953c967ca02b1ebb836a29749cb2d47738729d4ea7e2c55d2cace9f141533fa63ca25f1b326e8803fb170dbf",
-        "bdb56b4e95a126337c59f65afc6afc22f7d29a95104dba2b47b23b828eb8998bc407407ae7ac04a42544719b13f7b2fe6fc567fe85d28f7366f6b29f",
-        "7e94971fe366ef5512bb295110a6359476f02348365a7e5e8b55df107cd1d8dce3c986f69cfff11e86a2c8b05dc10be83be2c91dcbc69795a30b204c",
-        "e2c7854608bd6bdc9e2e3584fe59a47f6f09ad0e041a693a0d0b89d19e59abc3bb24908ba56916f096bc83f7472004ce7df63f8a72392d10713a151b",
-        "a817a2219368d338a4c440d20dd589a841dbc46d85af598323d48ed51c0de8e4940babcff57bc1509f475708dd9e45739ebf470fe503b8367e024238",
-        "2249dc3448e5e7e07103e6f399a44530d0121649affd41b75939bb97914105596fcf46b4d63bc3a389c420e25a8384c53fc4a3b59e7daf1fb823eb96",
-        "f943f327cfb8b57f880059e116b16ba6a68fd7330bc871ada7a15edbadeecfe949c32bc9f5d1bf7c84dcf48f231bcaf0e15c5e23c724a6363020c6c9",
-        "3fbd61e571d1e4e3a78de50923bbd624c81dbd96ceaf8160e6e997e1f4d670eeaa8c12b675c42f068dc79dd0d0684221e9b31ff5131f38e1debf1d6b",
-        "29c148ff162585e41faa21c51da6bc794fc793a7ac23ddcc2de23c3aabdb3ca87e7eb12161ce194872de430afdf8a3e4bb5ca63e54e16fee8bebf765",
-        "fc2b6bbe66662fdc1a953e604c5798512e047c8c6bdb9fc85ef55b50fe2f3c617e41b2056ef9f1c8a3d19fb779f3ef1456c0b4b8750ae3c62e50d71e",
-        "8c4cda0a955f74083f0d3a6a03b569a56834478b6eae394f1dee8672759283440406f7e457681dcc983a1734d90b1f01536e0f1e806433c406f6837e",
-        "342298e21b47b6b1439a26d178d2e36f6524946efa54105e3ea5d58184a1aac260ea2e7b8887034151e8172eec99e63005da3c686ef2ee57b8fd4900",
-        "e4a09921f46643263dd8dc2eec760d083b7137e897fde82e625a30c31e6ba2e3b700c9ec6e038c7edbb0faed09a4d1f195612f45a8baa78541dbf535",
-        "f90144afbc24848257884abf86ee2c92a11c56eeb58d4801bdbba91158db58859537d9abe9d324e9f67727090ba13ff232b1a2c8f84404f86a5d388e",
-        "64a90afa28fce2b1645a7bf2871e7ce316b112f714663dc204ca3756548cc0134d7638fd8658312099cda05bd8017763333263d6198fae71a73eb389",
-        "fd394a55aefffbe884ddb79435967dc1d0acb366fba665cf29ad2059b114dc532b2eb43b0ae73cbd14e26d55358a3b56a6ba73cbd403f291cc37960f",
-        "d0663530bf7f35f84ee8607cd47a86b2a377861c918c333422d611c9c694cdb980ede2e97490fe3230393fe39d9aa969ce79bcd253a3a1c82e5945a8",
-        "33705d495d024f7d250a7054b869f234a17b787b514bb521de0a872824a315b21f3f4c1d3a3e7e07b71bba652d5268f3609dd595019788af8bb88f3a",
-        "0dcf7b8ec517a6eefcd95b44bdeb5424995d37e3ed23eb162b0430c3dcf62ae10a8fb92a9b9fa5a9ec964f1dd31de72006c4fa82ee8b35246cc6020f",
-        "0ea1b77a26b0c8216e7a31036265941994883e2c1c895f91f583ed90a01631ef00f8a3ead17a274534502aa0bfdd854e50e398a98ebf409332fcf6fb",
-        "49a20a8a3b1a034c84848d62f4dc39053bcebc89844a31e9a910a80365cfa865d1bdfe1655ce3895caa4737f57e7e7a502be10bd30b5c667bdb9ddd2",
-        "96d34fd3cf7a2b3123c2c9d7cb83dd6b3b644647871952285fb6f51570bd7c55f4111bd74e4c9aacf0403c8698646b3d2a9a85c98d5e36b4e0f921d8",
-        "9025e205d95b945cd86c382d816134381a0b3adae4f78964caa6621db871792bbea56bdcb61b32c9fc9703e4096739551d566b11c1e04ab8a7838f6a",
-        "41f9d17ebb4c701b97b7fa5201948456e5d025bc05a7554e09caa7f68c140851cfe26880b1917d1ea0eed0808454a9776ec19abe7ba8f6f76bcd74ad",
-        "0ab3b61a414638978538692f102bbcbe70b0966aeb4032729fa35be0d42c9d85eb5fa0e3f0f7482eda110b51eaf9fa4e7658892c869fd783a2e8314b",
-        "455f49100368de24807af568be2fee57385630147042c1e05c8ce9c643edb136674fba5f02a64fe5c14911340675502733291eb3825e031fa51afb43",
-        "95e04d57774f9a9a91406645caffccc60d4612a97a54e7489a6c97db7c3a4edbc29690d78212a11f560233da95b7e07e20c03fa927fb567e9534b68a",
-        "c45ca83482bf244e2913f0c3c40a2351d9e309c842b3ac29b353ad59b62e5c778ecfef92cabb6c9722e53771c29c509224d5fa69a980ae0cb9aa8fc6",
-        "998d48583a5c0a15192ddb0192bb50bf65ceb2616e3af0d47349df272bc2122cc34012385dc9f6914a1edbfb035de6482997fa36173b56ca30f0222e",
-        "f3b437a04793356d8323bed8f173953ce2338883eee61f737972d815fc1b162238ce0218606b723edf79515a6835ef3c09656104fe06dcdc3ecae58d",
-        "cac047628f8f1af55c8fdd206fd68b7c47a0aeb06eb0aaa1d12d2e9435d04d734f3bd3446181cf0423d80df731ecd6e3f5d2b1740ea5682705c12844",
-        "c9bd9be91f1a58732ed9ccdb88e48911cca2a096f63bd08df19dc0a8fc9cb60f6c1d6a1849bc1563056ab6fc7815671d460fd0846ac0394594ca45e7",
-        "2183349ac49c8764117f85e56b22cbe577021c79314e57719c3797133b9e4d022328b3926739be564537d9cc30f9e7f21a611ca2c70ceb5fb72442c7",
-        "d73f9cc22dee96e0c66965ae54fe5e8d9cff3ad96f894e48a23048e9998705565fe6c976f93d6e702b42e9b7633dcacb570369ab53411d1edfc1c2cf",
-        "15847af1ad90a9356f9c555ae951e740fb017b078ce729ebce3ae2b8fa2116ba8c2602ae6e6e8362510a47b1e15962d43bc8ac46b5880c87c896a68a",
-        "eb02fa6238c106bf46648ff3483eb62ea5edca1a1f1693f7d441d2cb733bb3683be60bd32ff0f8c66f6a0d539ae0da7155dee5f3a3c749a8c913a3eb",
-        "ef610abc5a3ea5213f054e3d96f3cc74d7b2ac341eaa3e3595dbc9cb94aa6a3446cdacd9c4b44bc9bff9f7ce6a535fcc19e359e35bbe015e6e83d1fd",
-        "08f030a470cf87ee0f1c30019bcd2cd02ccef10ed94cfabe11d2d8f3accc39baf1f2c8b69f8b675e5b113ea44f8e70e660e4e92d359ad6ef0f833275",
-        "f1d52bf133c282f386609f7d242bfb9c16f9cf9aa5e1716127f9b0654c314e7c850245e8f04841e5db2e6e99deb240bf9596bc78b5c8dcdf129379e0",
-        "66a392b457bdc0a74beee135f070e85302025428abb0bc3cde92eb98e54689a12a2fffd6af9ca64c5c346e8c303e379b702900982b8f5d1ad1258b5b",
-        "d8d62753f676699a1216e799bf2e4ef29c61f31ac2229de8d4346a5846d5f3068051a8da4f1bdada5bfbc9a6cf02ed3fcb86f567029622b72aeda85a",
-        "a1063589905dbc3edacaf8cd20ab4971b082ae8807d86d29ef367d4b71526ffe45d7e698f140bbfdc6f88d051ae5e0e8ee09287eb030df1b48d8f7d7",
-        "4ce6e10d7a5e63eabf464baede015ab6b5beba936be037511052fff0de9fefecb44dafb4791510693fb3e316c992fce77b2ce4079f2243c05ae95470",
-        "bb83b36acd947f91d5e8bb07d491c41248d499af4b5b4e4e94074c9351c6686a46a4e4bfc14a3dab35aeadc8df4cb17332c6b0d073209150402f9bca",
-        "1dc7b78a6ac93780a5b205cf67142a141676bded0d35b53c5b264568af1ea3e6230341fbe472742ba8b74fed12f09c480f1be78869ac5de04c1921d4",
-        "4bddee31d931d70d595b60bac3ad66c7e83177a6663e48f177128c197e5406e985ef8133c5c395d1fb03a83bae8c77b343652855492abd56a894c792",
-        "85248a027d650c67dae1e3a7666e0350af26905a70ee866b1d5a2d6860abad1fe4133d51e2811a43a66e64f2b855b122a9f286fd3bf54f639360b84f",
-        "e1de234bde89671f26aede44429cc8edea778ae9db16da0a47cfa42d9f841fecdc9f2d10622db461f178005654bff5934a579dbecbfa80cb25dbd2de",
-        "77b626b9fd11c9c7e7060fe0e600dfe14900f672f9ae64ae8daf4a1683965b899a1cd24bbe0839d9b97be9f38cf5fa5fedc946e94d09caa7068100c1",
-        "e383937cd99751cd4739613081465d7fa3135adc87b647ce17fa758a2f8a4aecc9aca6925bab2fe3252c4843cd7faafc4d61ab3cd7676e141f0d17de",
-        "fa2de0fe72fe5559cec26451d7a2813a815408df3c087bbb9bfbdf3de3067edeb64ada05cb7ea7f5b765689575a3615a64ae30cfb317cb74714f51bd",
-        "10a878284f41dbac67256505c6434b907ef4d900aa8058074fd08de11b1c0aa0807f7fc041e84cf25f24b6439f2d99a7547e7db5b757809e7cf676b9",
-        "cbf6541b23ea4592074ed44873043225298d37cdb2eb15036e4b94b5486100bc157901f0e21ae420f4bfd2aba143e9d69c2f8a31e90da245617f5b61",
-        "144ebd24e7eb9689682ea45626cceac19a69fcb4edfdf51b475b1a7995a71efffff3b97b51f996ffa34b88417ccb30bdb6656ef86a39c467e112da62",
-        "d59cbe141f02534b17395f5a9e8b703767d429d05fa5b274d6a67814a5695e40429d1b8bd1fd895721e06b4865e458f67406410cc45a375aae6d6145",
-        "b7aae2d4e840890d620587217a139b20c8eec1dd588116bb1a4688327d1fd55515db06df896ede9a27c3f1c14b75c11bca2951012f1471765c9e70f6",
-        "daa719ae29e25868c281cd46022df4d217beae7839c9eba119c960a57cec9e55fb74566b45d29ab6fc199dc1085f25d73290a922b7c95d02dbc4e902",
-        "ec9f10122e0feb90dbdc94e16883b6cb426bad0b9429bf312e8910747a9d1121147905c0c268cdd7a15ba6757981443ececa4e3558aef43eecf56af8",
-        "7199bd39bd2ab33ce1d38cceda11b4f6729689ebbcfec346f748cc5349a6cccd88d3dc9c526823ec60776efbff177adb95f2cd59f1967954497b2ac4",
-        "c98f20947a88619b325c640ce6c88fa61d37d3ec51b0447a0adf9711ea4f139bf63930d9a3a8312b3b6da10ed857613e31914c4419ce0edd79774eed",
-        "63d2c96b8eb98f1be816ac3bce2b3bd3cd043286c740d2eb3de42f0f410e88baeff47b68872dfca6050e818d4bac6bf83821c8eccfff37628328362d",
-        "53b686fe7e22114c8cd7b4e2629bc1f259f810c2a785bb11684324caa702d262c4221d4a1c2748bdaec50a11e0908e681817be1c9f5f49ecfd097edc",
-        "84f386b2410ebda3a173751228a38adcdb2b7f22da58ee178455958bdfb1af0a2386d79714b7905009d14dfba3dce74cbfba4566ef7281616b18c29b",
-        "a230cda9245114f03b1cb6e04a4d55c491e185f4eced354a4aa4af2311d111536f9305cf8d54922e79b72ce976a92a8d169e1de422c4defd665d50d3",
-        "6509646168527d58a51734938f2738f3a822f6fe9cfafcc1ff4faeface1f8d3c76bb02b826fafa0277a8b4eff014366a5c8b00485cb8b93ff90d1360",
-        "03b9ae2d2cff0b6459ef2a069455004b4ca9dfb6c11af45429d0494c2d94d519899b29936d77c3d17efe6bd2baf8d395e2dc7c7363aebb100579d222",
-        "ead828e411f349b493c2f861711b78e8205dadde4212712870b14de1f95e151b4b34e102aa9f21252cd997b81a7fd4e90b06b6080a28c3cba224960d",
-        "84fcfe26e4a2894bf398cf27c13bc457c712d5ef22efcd1671f7e8b599824fc1261d26418b50e9051176a749b55f0371b49c0d719b4ed43fd8614718",
-        "1a29ee9379d10b9fcc363aeabba8939eef281d284b45c80eb988efbe9b27d907f62d37873cfc90f86822ba2042257b20fd963d19e25b7242d6af67df",
-        "e4125bfeaec93de2a73de4c060a0ade8873d75be6d3419ae431eca774b7af20728414ef95cd1967326f78105884037298cb16029e5d5795c05be61db",
-        "5280072d1d0d994635f0405cdd42bc231cae0a9010adc0290fb2842a1735258449d44e0e937e6370c344031f5fff6c592e83efa7a35a35bbb2c344ac",
-        "0a4bf03ff5f55ebecbd86e460bccc8a979ec08931e34ab91f93ceb7c1f932b55afe391b9e85fc1070db871b7534b35b59ed0d2ac60766b18365574e6",
-        "9093fae181a7d377ab8ce193e67414c99a32d6c0414a37d06bf86deb8c7267ed71b235e071551ad70c1fd8a59f6883477ec21d580dfa3e803a2f8eee",
-        "c9ac0c77035147524c8aaef8b068e6f690c5817604e442a8de08d6b3e5138d7cf5aff74eeb44f979349278f4bda23b9a0f3fc9c0d65b5798e02b317b",
-        "f50b6a33eaa92eedce353fed85d18ff702e0a25b8709cf30db97365dbe63e765f32198f4089226720a6d52adaf1a666b0c722cd38fb6544d9fb55493",
-        "0d2d233ac89be02b2504ff6c2f9d63e0ff58f8b9cef56f05ac990ee3defd27cbe4a97b53a6d0789eef1e5cf65f6c2b504c81323fb6c4dbc490f949f9",
-        "b47286213215a7707b6840abcdc09fb09ad9cd05ee9fd174141481bde6d0007e21ecb9424554bacda035d84e4b5759b8c544de3b8fac44e86c4b0b65",
-        "cd436bbfc7b804039389b5ade8867fa350db5522d21a147cd12159702fc0a07f0bbdb6b16055281d09ea59019b01c8ed6e2721cc9662cf926b208923",
-        "0c81a7ae3433ad880b2720ab80259e5ddf35ae58ddbf138596873b2a8350cc7ccb90ff4ec393e22ed61b4ecf204846a2359ec1718bdbc3531c7397b1",
-        "4d22d78fe667acb1070bca63a43644026232f1c715b605c110989e506598b49b6e2a1b10b981be1b5fa2dbeeb4b85dea7b10d0e66af22f96071e157f",
-        "c12e3afb8cf83219c7c74304749c4b9ce65089ce005c16ec249ecb45076e4b878e8ed0f63f04b88ca4b2a6a4f8fa81550b70ce86472a47e17220303c",
-        "26a5b27cf61cd303ca00584f083e4c25862e411be174c62c287aee2f4e816203dfd5731d4538e279d2b232d4625f4b38823ca82979d69d20d016e84b",
-        "7f37e1f9f94df729c594d6f651d8f3cc4060ac52f9a087ec62b4ceee87ed5193e39b8b601663be6ec2ddd5f0928dc196df453e0d37662342cc1382e6",
-        "885bfa0e09e27710d2d43218964c8e294e847a5f6e659ffd1b38d46cccb5666074377eaf28e6e85c6742bc5e3f4a1cfe6c1d2832795891de842a0d4f",
-        "5fb3926da7366459bc64d74ec8ee23e83157c3f097ce20bb796f160705cacb35a88e4e313f44c7df09375c852f50f2092f4a28443800e2dae7b86766",
-        "c5b02c7f2fb9663ea7533276da9eaf81972ee276685f08fe1a7122abd80d56d24bbbc9cd886b4c1c57ea24af1bddbd37fc738d928d0112389899eb54",
-        "358bdea3c62bbe5925bfdcf05e61a57b24186dbb4a7992b4a8938620220e73cd9a81336f5451a33ec74cc4a8d07b5f3a3b1d5a22b41a37ca24bbf549",
-        "1d2102ff20a0ec0abd6c1e9aa953bc9e7e72038feb5847e444bf52c2fd07b211c753baf16b374dd0312f23313fb86aba71fbd462d14ce7e454317ea3",
-        "030effb1c74eab973744a6c9ae823a5f2657f97d37b2eba06826f3a1506b48dcef1193bc5d70d86baebda80ae14d33be44263f878086ff73e8ae798a",
-        "80409fc5d770089d56feb5ade89c8232a58b449b8e46d6d404d06e2faf12f4cc89f32985c4c51d18ba4253c8a17683022b737c58fd590bbeb37d959a",
-        "243b06ed1d4755293288827a4ae650dd1072d17bae4668615125afcdc4d5bac3eb0acf9ef6d41bd4129d719eeaf05ca5495a1019468ec4f495619686",
-        "d32f7ed407ddddff86b7deb8bde0c493ab9f5f488a3e680000388c8dfa078f8846472ee64479957e32de8e841b848ae44784bcf71f4b8502a4078048",
-        "48d2bd84c6c3ddeff0d2a2e786fd779dc91062462cf93002571fb7367775445a790779ad66cb1097c165287ba05d7444dc79aceb38811b21f8b5ab36",
-        "227f4ba8b2a95b7b725199ab3a77e29934e812b27f1121c1e88742fd6b6138fa17cb330380900b1fe65e4f10879e9c04bcfe6a906765c7b0c04106ed",
-        "c7ee7451bfc4472ace65885d41323d61ee76556dd3ffb10b48d13c0edb5d41cdfed01735369e66208b37e97f2946d78ee69db7376d3a4d678eaedb01",
-        "364894e058e449ca54795e9b090194798f511161899768e4e295b6d6f4debe50dde5773af38bc7ad594104ca49bf7b33b47f02c868f9a17a321b4178",
-        "ef796cc43bc70bdbf0ce0d1c37de5bf166a69341ebc1b70596b873a9e2e665c7647075abf06e46856391e66c462d2118457dd7e3e85b5ae0b13998c0",
-        "64eb307d9adec340b1bc214e4a25bfe0c4b47c9bf1a13f7b50b69cde16c31ffbb6b4e2eec4eeff67e4fbc6177cb221be3ab7efec2abc31913055b2ee",
-        "d7c50e0927f1e6dc1c57670003d542687291fa13bcb38ad2a313b361065344b5c263c3cb783177e53b405ef9e98a72eb9c3be164634de6537fcf8516",
-        "f97de8fb5ef2fbb61d25399ff601d4fbf1a77edb3bc026dcb866f8b93407d9633df951cd304c2994fc4c56aae731468ea57de749fbc7affdefc2aacd",
-        "0aebd76e5dc7d328bd0e0a6c21f7c0e3b235f4b117a1da538ea277d06a7da59f1ddd52881102769b230000dab5b6c850428855420ba8986b46dc3334",
-        "658fc7fb3da7adc2e3a9f0740c34adb01cd09961502b84d9236a89614691dc77b4bc155c91d21cdd07d7f2be7c0f21f84b5f2ce26ec2ba1bcc97a5cf",
-        "33e3250794dcf709ad472e8df8e35cf42a9caebb59da5ffdf436bf38ab1ca0a053dae03f5ddf10b4bee765216f31755d9ae14924be4c5074f60fcabc",
-        "71b2163046f91d53272421ed7a6bb6060a1583b711825aaa8bbfaf96bb1c9a68ef6737dd22863207689fa396e463af5df1107ec207a4c5b2b3e6c244",
-        "187bb54d9fd10d67eec0cc1e9a319e88d62ffe51df8a70c23829addd0e90938bab701e86447b7c36e2950eaa6c2f8bee3fcb07948682753c34ca8b70",
-        "adb866a946a9cba596503b591db51e5a6ea6a05d9edb2f66a73bae8cccb6de9df3cf160e137d132a6d0ad2c94873f3b174f96d6527305ae077a26edd",
-        "32470b6ee8fef49202d2e2c6b734e441e30aebae64f8027c28cd5a071a32496d9db0887a9ac3140cfe0da0b499e9d539e29e8f132ea2de1989af1687",
-        "c7a1118999997b5c2ccfbc0b1cf8a256df722fd08080c0803a4ea6695dc99bfd26553dec398372974681fbe9f4c0dde94a3b0482a7b7bb44949f33ee",
-        "d52be29cbf3463703aee6120bfb5c38d2b125ea5bce25bb26304abeeca11bc91a2c508e821d010e56c7f78bd79389334fc187dd789bfd98eb246899c",
-        "9e014b8607bb3ac4f04f88f276adda2655715f0454243becc7b7515da76aad955d287d4f23dace962b4e662fe0e4a41e26e732f4a3c36ac0c42852b3",
-        "29c22719e516344597fd7a955ce4ff621af50cc3d39880c70cff8406aa010d17e2a97bc3587452a529243ba4cf89b74389d0b34b223a9c508fe25f4f",
-        "117e049bcf52143b7a822eb170ea550fd60abde4dafc6b2727f7d43b4355270a1bd7d75390382b86c1d227f9148d1bb79c3dffba0f0f8669a1655052",
-        "5e28239b4daa437a0958eaaebc7986645f84db768263f1ef1d78913b714651c90639574c55518026908669f3ca30a21de2816ef0d0f770da8c8f3069",
-        "b3bbb54cf14eafdc93c67dc98c5e514d4b4792c00e3adffbe4e11152ba59776af932ca1681f052ee718b32c0f7d8e7683cd28d6d508b17113e3f7d8a",
-        "16103525135db8a7bbbe09f19ee5e0dfe4e45b357e1065575bb12349c04fd5ad5585af643827b4f6f004a885e109450b46c1dbfeb4e56539af19738c",
-        "3715c35af7ff82bca8c5c85dc9a0048057391740dc1a5da415ec17da129080e587e9298bbf5303b886b44f9f2ef96f5d50b2101f9832e6bf3794b34f",
-        "2fd669764255fe2120bd4b3bb4dc6775e008b3e33b8872901938b5a01bf8f0dbc3d3ebfb06cdfe170c2b1bcebfb22f52a042545715bb429f802bf2cb",
-        "e2f9d7d706610decc4145b6e7aa9d90c47cc472514c71f0fd30f122506c7359e647127d6e88bdfc0e295fc3d5733f4872ccbf60b8296976a4276e567",
-        "950bf979ccbdf37a3a9441e986d87ffdf9495d3b1cd949d0b24c4eb8c29f8f5584f371de7b56fbf700010598e5c6350e514a46e5469ca537b8eeed3f",
-        "0a5d58c872a4cb4c1b25696a83ac6f3c2444b3ab4cfffe28d4850259f4cdbd3eebda19897513282b6642dc54c608d8d4b0b747be69051fcc3c992121",
-        "9307306e2eb0aab4586aa8430d21506dc5502f80b78179306b8ffae8757a84b2e30749ec5d70d76307137920342190862ca9bfa7d2bdc1ffe4ac0966",
-        "9d163a2dd789e02555d3fac824cd57e2817ccc0736f7fe0a17c951df7a20452e4eb6d86dbe42796b1265b42dce8ae079cdf4d1656f46fca27b86ef36",
-        "c5eeb67351e29b477884c8a8a393b21983743b27500f5b1381069bd364affd7fea92726b9978d4addc6e89c42221b2f3afd5feadc4c7cf2124c2aac4",
-        "b3ef7d08d1bb8f14046856c5f9032f0326caee03f16660bf39a18a4ab24630a6cdeffefc2c97693cd03cda55dae0e1f9b1d95f28961691e18dd64e16",
-        "a7871ca6312435074399d5a221b8479cd12ee56e6ff538bc88778ab70b793afca04145b4fc0dffc0d09368ae2fc0d25c3d6e47c23e99ef7ce307feac",
-        "01334956e52b3eae31909833f283999a01e7494af9def0a9dff5e5e0530260274dcd561dc0889fb12a91f3b46c2219e8457f918a2911a0f8f388f35b",
-        "29bf107c50e478e9ec2efc4de2f4538d4bc2f1f2a76bb07623fe47ca2ac22271748909ffd94a77b9b1460bc6231e752c8dac6c01756295d5eb098238",
-        "b0a2d03c101472936d52d620d0659973398463f6ae98d22c84e10e64c4be702ad6fe339f26b268e1e9f36f249a30441dd6ecec1a1b0b5cef62b72d73",
-        "e8c5fc98ac239d60256e396db99ba24df1948495ecf117d39bdb90ded1aaacf2a44f6958890873b23586c3da9e3e87b75dbb1ca18d0506089aaf983f",
-        "2c575fac9699c0d825cff6c1e484c1f950158bde84e20d471d88c2f53de5c17fba5ebd3fb9a70ba3b46588e0a56a9c5233fa893bb0e478a16ee1955b",
-        "9bc90fc01deb82eb40f17a57dd12e32b22a1144a883d66f003a8721af6b732de24b44e3136d6d98e630cdbc95078cbdc33608343acbafab9b271c2a6",
-        "7e24d5f271944a6d6055b61fe6b31aa01073ae11cf7d5f443593473c0448a811f47fb1f4b61a45c1b0ba22c7855c6dd2c590f34dba3a26b90c5a813a",
-        "4b6addf4c1488b1ff9ec437336d91356e74363faddcd40c11e0927d4236a39acd381010dc185e0d89b45bfdbeaf6cbbd1c8537a03525a6f97e38f7a4",
-        "c9df0be4c32cba556eaf6629ad0ecf2345e03aac878b81786e16c705b0399a2be6014f9bc8ede44e9dc234d5b3201d8a0b647410c8311593883dffd9",
-        "720432c3c0b7a86a88139090f912a26053cc97a8f825055313a939726b5cea51ae4d980a66773e03148dbbc647f12dd2f6d6c9e54b7d9aac9e124883",
-        "28fa7cf1f7c6dc1d53a3b61fff8e80da768dda8e4c841ec83ba4195a9ab8c364af4baed86564701eca8ec7470820b846cab118e744de99c27f943305",
-        "dc17e9aedfe3384ed9c189c5bfb861d99e9c0ad4a104486ab687085b856987daab57e6ed2287b17e8ed47d58b8bf63f593eb9be1aceffea7fc7d9913",
-        "92e4932738a6bcfc7b9ee879b42772632732957dd1185d7a135f0de5b6409bc6193e7900ab0f15421a6b2b7b008ebcff042f6c583d92e3bba07e7274",
-        "a8d71ce0300078e06426424ecb27606ceb0651ea89c1f53d83e30931865cd49b2e1b1b1ec3b472b4694201355f51ba0f177b1504e111fb0db529b836",
-        "25c26cfaf0f200569b5348ca236cbc3b9587ea3d595f7891955d8c2c3ec10cea4644422a61bd160b2146747f1e2aab95b02d7e1c551a0630e2f56106",
-        "b69e94dd3e035da085dfca450574fede4d4b323d56a378bc734277f3e1af332d31bfb7731701447c7f077e3b6b69afa153fcb86fbae582735c69d5e8",
-        "8dd7a81c0bd9df6121101a403568b24912b543fabd523f21852c53be8a9b0af3f07f61a0d33f14c9c4d3bb7490f10ff1baec965ce052511392f89960",
-        "3abf78ae95f50116b1b6c285dcc5d6298e989f420d2a770f25cba3a04c3ef175c0f26aaece11263e2e1f344b4f68d9f79b9b669af93c73faf0d9e565",
-        "ea70469026e7be559a694aeb9e443788eb9788b0dc4b675d7b347aa3d73d3308a8c57104c6ce04fec97b2df0ab381f501d5efc2562b398051c1e62eb",
-        "b3043895688cc176dbaa03ef36c25db672646a5e91ddb3d37089ff5e67ce85e309e84640a2280e29e03c8ce88733322d277251cd1d339417f3e48601",
-        "7ecb4cd1dd08fe622693f4eaa685221868b09248af837ebe9ef2743657d04d3f27781bc69995596294c26f76b66987d8c92900b08d6761af431e5ad4",
-        "382a933eab098319a99143316cd7c3c77c16074ca4eea2cb67d0a5c24c4bca9f690b72fb39df0b74584b2d1c2084c450cc1142c438d4245139db5ae2",
-        "e39f7267fc49853972204c04205b573ccc9c7137776b57d8a002f5b7975281c8c7867689ac336aac889b1210d5b3af0b8b3f7d4038351e5556adc4c1",
-        "435594582fa477a110cfc0a8658809594c940e02d8b52f9fdedf54b0d635df532309f71d8500cbd5eb2c3f02dd948b90c351dd145ac394180fd470d6",
-        "ce14c495c54800be6800653ee2321bf1b6355e074130e76b82ac57b216e5f2f72d2b0f4b21fe7f992b7037e75a610ed0485ce00d4dce33ebd9030091",
-        "563a8f4979165d36e6a1c2f6e5c6a1acfa83e660233b388718a663ba8b395af47debbd544b5f7b4eb41acdbaf94de2fc03c7343b3292472bbc3bdd92",
-        "51ee87b94c4efdc027fbafcddacc172b30694ebd99bafa8297c91673eb3547758e405e1b4ccac86abbe8b7087de3fa9b03d09cbe041b8c3a55e45baf",
-        "1dbe92e6a408fd2939c5671959f664530f3aa80c346c4f6bbea21fffa85223298dae95720142491a56c35be559210afc6555fdf7f353ad86636028f4",
-        "dc9c9d3a633465b04eb6e97687b81ba29c002a75a949f64184066128fe278d833be41a98a05e1e9ab90c42433322f1c60aec96be9c4bb27c6a120353",
-        "cdac3119c53d8930aef0823bbc63f4807ff51aff6f049ac0f5995d0276ff11cce51c3225805a5da283245049523c65776203298aa797f160683b993d",
-        "4fbd3d9629223ae0bf10f8450a616cccedfa026315c482f938583d6b6619ff061e61440bf8d43e8d70815b25e44e5644c379ef75b73d9b790e1cf05e",
-        "2fae7661837b1fdbf505416da348e2b654a26fc088374a2242dd40f9aa4591d1f67c3eac06a3be9780e003fc56279361facf46a8e970eb701e3b6838",
-        "d013dca00318e00d5e1c46e4d126b812cfce95db0ceee17d270a2bf51be7ba14f4357c39ffb26d3e02562c4449e5fab20598ae1dd2e0d8b8364cfa8a",
-        "8c4a65e7118e1fda5297e609c2318e1904c655dddfc70927c31a5f0c08187537178ebb9f8472e8031af27c543c02df0a3c4817aa743fe988c42aa31f",
-        "80229abf43b118f9483bbdd16e7e047d102b18c34ebd81ce16e128a9f9601fe78570ab644ce86232e66b2e3c844ae3a5ab5206893091d34c867174cf",
-        "135df833d1abaf3223351c31e04d33d801b7b8d2f4ef62b0a32cafbdbacd8573bcc4d251483ec0311d097fb9965f4e1e251e7fff4d5c582e99cbffe7",
-        "8aabe1360ba82eafd3a077136172960d87aead4ee4915b57832f2a0d507658cd0379f206b862de67a3a0a83a50e3b1018f74f641cb412c0341f130e5",
-        "de525e8ff46b1f9253a2c9a15a70a57adec984f1ce246f038240d49be3757e3a28a7ce4567bce7429ac8777a6397b36298fff6cfb6ec5a8545128b3c",
-        "a2b57ead91c7315977b0f41f9bbea15c6d8c9125ee1298bf727d0b202fa2d3b860bf6171c30557dc9e8fd6daa5e0bc55d5083f34d042cc70df58fa10",
-        "e2c1d325ecbd3153567778bef95a5369a568ad716127b2e485de7209f22ae375ac1eb6477cd11290f67320e5f39af3067c98760db18a86b2d1d2af44",
-        "ec0fa0bde4948596dbb539aa6cb4bbe4377803bd3365cdde832c01b68a1361cccb85072ac75065785cf6a4d70c1a7723ae9e4a8823eb2442ce18fc48",
-        "3d95265f7e4a24d8f17d862b2aa449e71be03df8a49ce5dd97429926e0e1667eba364a0b272d935eaf2c4d09bf319f863202443621e5628678c0751f",
-        "9c55309398da4acb93ed717dd0634c2ddaa9f3acb692c248c5bfc1bd0346f60fb4422bfbef09b87db3db6eb43e223b18ba2e9d9f727e6a9ae5035d79",
-        "91e83068318125fe34ced89fecc103a5516b775733d952dd137b98afcc08df098849e3f8ceb53fe4d5dd2f63952259afbf552706ad46409c59b798e1",
-        "db3ecc324a51e2336993dea4d4ae8f3b7b9c9db73aadf1617f941ae6a26e215c9461c8e2c2d3b1bc36e5e85ab884cdd792192947a9fcea4a21a91d16",
-        "78a3334d626e23a000e5f368ac5df1b366071575a68d117b6503a18271e4a59b1e2801cb7b5b688cf7ca0800ee16f1be8d40e1a41fa28ce7622c984a",
-        "1e48aa6527f025401d19d68f01be55e249254b6a2c13dfdf3d12306b5a10631e619fc4437ba737580cdc2d4c175d0a4cb061b95d664832fab92eb44f",
-        "7039e839428142e6c67ba1e1d93713a71048a46dcd10fd90cdf41a29b7a3f20f8ac5b1dc2a255d45786c68fc6d78ad170ff907d73f0110f6a1cd5d98",
-        "e282735132f018cd48b45cffbdfc0f111edbafadfa958541787201a2bd11f37389f197cb839ad7c385f2c98ec61f7c05abcd231377135a347b310d6e",
-        "9bd20c37fb9b2f19a1c01910a9e305af158cd361deee6c0de98d059ce2a5daf041424f9929d7389ac77b8b8dd91c1931438e6c855889835b2eb636b8",
-        "98d53039b1cd7a851f7c4e4db436a804c8118bd3d3398aaed1a2041a20f8f9e89f0510a762cd1b818289d4205d78ca7707e94229a48dc2f13971d8c5",
-        "4c9f65c74a14203f5cb8ba26569d0352bebd2d5567e0d4cf5ff28e381e0acd1a5873d088521c28a5f23989b092225c6e7b8a41ff03801241d011dc73",
-        "5e1891d79625e342c6c47e40025104dd0861f276d83e4016c63ce583b0b560f6f6ec0972caa2adda36861aa9fd6101b6d2f5ef927d6d5f90898e3880",
-        "687a2a430fec3d78c1e5bbcf4d5b4c3cdf8f0d9d41349eab75b2064b3b28155c06ed9a1963eb02c559f1ec043d1a6e971357546a62b532196201a91c",
-        "49b2623765d8307e0acb12f13b7975e5ee221a035e814c559c01b94209693e7282eff1b6d161685e063322cca1076802d1294a34b46f94c509af167b",
-        "922cc6eef2de529d71919116ad8e95dea19308b0acc8ad52f03824ed5632e987a3d51a6934da4349ff746ae9d8d71c6c0d36c5e6852b2ae72f0ffabd",
-        "e1a08d436afc9adc7ae9b893746db502850d8379275b064245cdd6ec84248380aa209963c6fb7792f6a45b1f55a5c0a27023149832bed9a5f9cdb5d0",
-        "a087adbd956c01e08f7f3be254c497735fa810a48b11c4d69239eb142233c5b858fa663164f4bc08cbb8f094e82bd3af218e3fb40b884b92e744960e",
-        "87b32e59c0af8551952d42367246029265b7597f7b354a07bcbedaad09f32f9058858ecd271cb321b89dc352fcea750b3f76db4c4482a9726c191688",
-        "cd913dc91d575a2e5e145519bfc4732100d1802275b07734384f121f1509feb28b183464a273952ec539be0841cef443da93b68968c26960c97e4374",
-        "25eb0a6d8e82fc11a90f12e19d7f85be41f6dd8de119ab02bbe4bd8a7d446ddba84d659146ada5d6a0f497acdb4e68dd0f39c23ed7611171865b4a19",
-        "44a5fcff7f0583285c999809a32e3d30eedb6ae2bc5f4659430f0724aef5c8267f9685886b64260c4154d9994da68da17bd42724d568e9c946eaa040",
-        "46ee97911eb51d15d374a2d7dc510c648030a86bd626443c86485909e49df8d5d3926d4ae8686873fa4a369a1ea365351952b592d0208b1822024d13",
-        "ecc668c6a4ecf992fe07d247bb53cdf46cbf0a8fe245e7998b8c30fcc434b30e41baab6f17fc2c41e637d44d0f5cd93c22fce67bba16dd3c064a73f8",
-        "cc75ba1f046e0f0cdf63c38891a941a212924626749cde2adaf717afff0a356554acd44e490356ff7c02da7500aa1d61e79743830b4b4d38dddf699f",
-        "78c53c3b7292b00de7641d03bdf8d9fc2d21e0763fffa083c57d312f8c694b0c3e115c35de738d16b6d781764ab2ec20383b0bfb0e5d9107165b93f5",
-        "816d3f1ba6767950618636faea1049aea8d4d933e20ea793cafdfb8000eacd65563d3abaade361a69ad9b595eca1ad6fdcc286c2a871b97328cf30d3",
-        "5096cbf74ed39a366a421026613278e3565fa23ccdbea90448ccb5569a4287a34b3a6a1fc66baaf5ef60bf5b1bcd8380b01f6d31d7f896a6ef84a526",
-        "f28e82594762ba67fddc22c4bc578e2d46f65b35b90869283a0bec034beb7c9bec91533f994afe2eebf720b3e9b0de4fa32afee648f03113793860aa",
-        "1243c6c3c26b66a88910282ee485f2857c2b40df04426957ad01927be1a3ae83c34acb345c197d61186b51c42dfa81d34f1446dab3e641920dab0908",
-        "44147a0004c6f27e1c4c7d5dabf06139fb8faca3e5c8cc5397cce18bc6ac28f793c1b8ac39517cec526c0c74cd4eb5733f98ab652ea0c25236261f5f",
-        "7c6a5286e0407f8d753fd76614548f7d06858fd091efd9d2a78f3e614a9a9271fca87c4d1f8543a5f2b68fd04dfd3a3bc16b309c7ba474798729ae5c",
-        "8332e28654c6ff277b0e0587887a7360fb1a3c44280fe1b5c9849b465e21fc90da3f795ec7320c5f29658621e46535bb1f9f426c234d67ee59139ff4",
-        "5c00f4c9f7f2746def79742fd326bc7faf2641f8efbd63883509295fa8ee7bb52ab88c5bdc889a4ad15eed00efd01afbfa2889f1a87c7dd9ba91bf3f",
-        "37f998d21157ce510c1d4b120b34b7124f2d68b0e40a8a362902a193b05763741ec3ef6cf8df21dbd9486111b14e442c964f1a1b0c249275f8003b58",
-        "9d9aff7b4e500414932077d6f41f89816695c18c8b2ed82c7898bd0cb52865c5d81876e6c1827fc9ffc4e93d9c0d9b348bb74f8f43a33b2f7c1d87db",
-        "b582e3dcbbd793a6d0c432bad3a07ea36643a28d8c318986c840eaa537181635ff22cc77ece70447683eabd29729494a8a6626b4df587ae4f3d9b0e2",
-        "2b4c776c350e4ae72acda7dffb19aec8ca7c2301e8131da7b560ba335526469ebeac27ccb3b7e799022d5d839d72e962c298b751c1245b82ff63dcde",
-        "423a0c2f94dca4604004e5148fc0118492845120fe608d02acdbf1e306625747c567425ac6dbe77e6842f94142ff8dc2ab941f1303369aea15687f07",
-        "85976c87eb885cdfef5b0f5c815c3535d095830c1235b11db76e0c9dc764ec3bff2fcb4d99a2f5d4b4b7f97b12c07d34e6261c114f1d9ccc26125460",
-        "a9f63b0705e666bc7e25f213b037ec660bc4932460a05a7c8a5a03d1d74f6e741f926709b4fff3a88f2b2c45c4583c765e78c6357de88710d6b82d70",
-        "d18669cc56de9188e5717a9e8758449220b87f7ac3d9889805e73439e137e7b8877d4adb56e536d8e5d59dd0ecd01a8e43998610e1bf8e39af5a6024",
-        "af4e14c1d636abffdcd86ce46160f6f2406576ee65ed1a891eb9d3f83d1111a43e175dcf6103f561fb1168ec5b55f8e433e30446c2b95ba488b8f5d3",
-        "de2ac9932116d7b2d49183a408084ba7d46a194ee80a1cd9b6450e6a8d343abfa3c49544880c236057d9d12f21050ef608011daa6144ed693b4d95bd",
-        "b7d324453ecd77c11e7c3ac5dfa93d73cf394cbd32bbc593c72306929e37d123ef0c7e4444a410b47709095f00b8885885321eed80db9fc23e508f0c",
-        "5f56b05c6095f7cf6341bf4c595b3a04a05419a439647d5d7d1c00afe4841266488ad2e20747a2f8de2a2db9e28bfccab504fe28b1de5941906164b8",
-        "86511375cc92e86633d2fae521d4b00864ae24235dce2dfec4f567bd41bcb01905da9efaebe7cb9bf743762de7a45ba0dc86940f53118dd21cf2aa89",
-        "644f479d510983019e363463a6bc1ab79aafa66a021e7a1ce66735ee2f692a2527a8540138c9a6117cdbbcb31d36293b22d49f1cea8b7eb5d4d2f350",
-        "43e1d5461dfb583704deb18cd2eddf9fea15cae44328022409a8521f1b0d822409023eb876a6e249db220dac32240fe6c31613f3b01940f9e2e63f63",
-        "1d057c6504df88351bdef8afff1aeb07d16a9cb5640f99c6ea2e1301c34701e475e6032a0dfd3669c168b6d6a181e2918ff4c9807ecd74c9189818aa",
-        "d808464775ba8c6a9f02560c7d4cbc425df5648d16bc5b2e0786e1af32eff7f03e051f8009d07d2b1eae89a5e34166af0a953539fce51539c2233308",
-        "49c148cb2f3c103365249066180d204f1728ad6055920bcebc679c95b1594962013add32b0a3c5ee574c65ed433eae611e07c3188f7a76cbd90b4693",
-        "1a945c943072387b3d44d2e74bb67448b3b9b2d2956516e007f6b2ef74cbc361d1f8842fa49cdc522bedee0292193790c077d586a4e4240cc9d33ac9",
-        "32e616d513e5285fc3a1f6f8f9e6686ff55cdc01d40bde9f178b6f94efd59a5953ff887a8a261e562097b9b0e335a9506c01dcc790adf3a2ad58dce2",
-        "c588fba5ea6ca6b8974f5468376386d578a60b7dc5d3f24dab5a7f09ec7b09cbef15e8bbc9b65ba6dedd4abcbf787af6c75ed0e53a8f142052537c24",
-        "97bf735fcfac15da59162ca1a7085fc743f9f1766cbefaed761d86879359f138f4f78353de6362ce8048e5c49b0ffc6748ff75e3c956c89a96d2cf22",
-        "f3fc693e03792da782ab95e4f91761e79c6a8838895b7282a618e7d44985c055752bbcd9c3858b6e654d953cceb478ef7bd663568053a125beb17493",
-        "07d2a967a20733a93a8e16922f69e55e1a7bab7076e3e4d2904c7e7996f457d18a6de7dd1a492ed9d9fa91a579b66f4e337798257d3096eda16190c6",
-        "29506c802980d6fb436128868ce46b4d66ba8b8b11a9ffdbe4c70a8f4c96b8e953320d50a608e031d6c86ff0566fc69cffacdf82254043b6d28b1827",
-        "70e48c06119f5f31e429003ab0ed07771292b8f3109adf871ecd8df0361d699e668fd8c8067519372215a2bbe63ef874be88cb021f06d0ac558e50d5",
-        "882f3456bbf0976e0c2d9e73a609f13fbfb17b4f03f0d09593b3264b4de779fb1d1a6b95860160a77dca73d5050f59d64376039b0ba52d67c37a55cb",
-        "21c7e4a27750d0ee58254392d44d66968cbe746979e10ac6d7a1751ebd369d0f7b6bd50783837bc4d891519c029334101f3f173af0fed3d1c1354124",
-        "6c03a4942aac6178a53946b201e6f234b108ecef18dd111dd9562403b7f0e83fae7d065cc819a765096a9867413f31888ed3acfb15a645b9fd492840",
-        "809db0d25eb11dfb9d23c9fd778e64da7eb52c8bef87db12c29e2d5c8bb7a81a8d7d96b2f830c35222bca8d085d227ef5f3fd99e90334bfd7b179a37",
-        "5b12f22be0d3211ea88f39defbd64b7c530913e3e7a0bab467ae4ea915457df932a9920e8891131222086ee46210fde775cc0efde9ec783b6f2e6fae",
-        "fd04260339c94632d6e155ad4384bc61dd5f20a26d4005fa78a6d716773a3986738e3054a6442d72d23416fb966e73235d92288ac71c60ed93cd2700",
-        "c904ffeebeaf4db9f41855333ec31c8bf27d2f7b67b0cd5f2bd09ed9f6ce07bb7078b4fe96db1357eb911318f57276ed0dc2dd06e2b97ce66c8d46c7",
-        "4b8e758acd0839eefe95b4989642d1e5e7f01d3b1b27af852bcdfbf0b172d48a0f0b54cbc37f7359f5623fad19a35543943857cf5640246b63d51220",
-        "1eae49aa1ca2d7bfcfe02a07d8fafbbd04ee2819a20bb876a2d687334a6497618a546ec5068c2bbffaa93a7fd9bf8c8c6b309c465850b63660736d77",
-        "b7913c731861464f9a6da0ced2ffc183bf268ea88f44d50a07e0058aa6414c46e58089810198ad4c8d38265b8c8112874bc6c87ab3b94ed77591e749",
-        "ee7149a8457711d3c28ec17980ff31631944947278b3deb1d274079dddb1dff79e10f91121d25d3dd201b1efcdd1f8869a135a719409cceb3948af39",
-        "55dafcbffa2c0a8258df8543b7ba9fa5b4c0a11211148d881582a976528f3cca8e4a9d7e3c3a60262b75315245f53ee8cb02b1b63b21de0c7186e617",
-        "567dab4ba52138f0729d02953fd5c628ba69bbf1187978ee68f33ff28b3f6ad4861f1f7e0574c19a2dfac5b1529cb7aea9594872d4c409eda3220e9b",
-        "10e8db3e81903bd117bf43317e0a1b4d1c24af0e8590983e85b97583dd9de72bf4339216afdc494c85655e96cb65047dc05ff24a8d74062fee0877e1",
-        "87bc5469bcba1a496516fbfc1b71f89082f218487019d0aa1c98c3f596c027927e9ffbc7df6ca5ce2d1588c0d0f448bf59074f23b119c4ff3b2173a4",
-        "2daca2677a48b2352794556982d4202400d826b261205bc52a423e8118908dedd503db7e9042cf0dfc96d521633f08bab4c6b7b6765eaf7e33ae0e24",
-        "889bd6e9434d39c0514060c60bc3f14ea6322ede38ca4d3ef0dba9090dff1a5066e0c95abc1484546086057b9772784c0960e8339b709fb99bce2426",
-        "540052950ff968197eb88630feccd658be545689cd8ea82e98ed9978777fdee2dbb6e20b442777406b1a0e439bba917cb7327f233695dc3c3e24a5b9",
-        "34f5b3aefab9e5ea0134baf7edf9898e224dd38c341bedf9ca5839999045182b3c3cfb468cc340afc3956ecd2892a835b3c37b8a31caaf82890bbc86",
-        "b81baef953951616c50c11eb313b75df3953cc894ddc81b08362c45fa7b2e192f765873b929ce52fb46e509521fd9a504e185fe7785a1ac433ef94bc",
-        "400cf747f4091fc6f48a62f256eae4890d42fc648f89afce17d0a6ba08dcdf763f53dd6f5eb9ce0846e6ddffe63a5d52a971460920096c7b0497d67b",
-        "8feaa4e93d6f8de897c19017ebeaaa786b5e3de116741e6160b662aaede89683a569d78e7e4b3de8d3bfb594544f243ab4b3d98735752fb579230d34",
-        "7de2b56a7d90a0663940f64d5750843ad9606a3965fe7af0d5354636f4840eb3672c048538ec4efcaa689f85778b2efe75b9750530573222680c9aa3",
-        "ac46a4f035d59e391d8ea8872f7a957101c38e9fe012bb99e640cac74de8104dc2d59de541cb9657bcf38d640d6e74e7351bfc4916f525bb7402ab93",
-        "3c5d86630c981fdf4a36f3757940cd445d05a0eb04c0f8c107c08bd6cf967ea1916f6f3e7f92f25879475bc29ab7a379e2ca9b5843a5cd2ef26d1693",
-        "f555e028298b18f6c473c81c06cdf42d919a668767e0a4392c7ee9a1764fbd6ca0a76121058c90bfb27132f7b37d080b61f0686db30ae384cbc5369f",
-        "58452b00e20542d45aa3077c2dc0042ad0f8fb78403fd5636d69dbcab03bfe1d029bc48d6d363964a2e383939fcb98fb9333fb49c8bdfe2521ec838b",
-        "843fa232b744caaa7252f7fdc28cc5ebda3ec919f90b377bbb0a40bb9b8fc8782f17c05738cf01ebf7c97b063e2707feb626260e178470c18460096e",
-        "28329abc0ed862cf0aac4efdc296ac98ca8faea8ebd1759d9e239a49c78ce8353c0ca502b31de3896fe22f56d6403a989321e7f1fa554e163c875870",
-        "39ea37f6fc50eb29c62e6fff93268c954a24914f930e5c9dc9a668364cb8f4db500cb1835d40535188d701d79597e47e4cfe233586b12b14ba38b11a",
-        "73049a29b4b18ab15d225b827300b06440f7c69a3148cda806b40791e14bca21c0df4157d86b730dee5665b1035094a71bcfda2afe3278432c159f8f",
-        "cd6b0fdafa138067c470bf679161d3b8a697aeafdab9b15d385cf883c883564f8bc1c53b0611a447f026c4dc4bc802818f330c049698aa740bbf266b",
-        "c200b4f868cad8e45a6ef0e4b06cefbb44a0f56417216c2a993e042b9aa6dabe80efacd057f69f62ee43f5205586b19e5ada1830821a5ee526fa9603",
-        "b72da3a1536d745a3323be86a693fad931551d906ae3f2af27c1891f1b05b9c1010765bbb45dc22bec0009ab7d0b48dd82b3de21b2b0adc98c3b2040",
-        "c13ea6e2af96a1c9a1334aff836295ab2de4480fae5e9586482e67383a8bc03e652d1a82e10c3015ab8c800589c598c04923750e6816921d928ccbf0",
-        "c7c69c90ee7628390bfed727b952c66fb2aa8878c27c95a68ed67ffd4005893f55d46e1c812d3aeb030c83fb7491d036c48ad829bba329322eb4c8c8",
-        "9ccfa826a48bd04ba715e6f9cf783dfd6993efb419bb365296ae84b2f119bb23a1b344258b7a21ba02bb3b0ac538d0b0ae3b2372e11280b0197600f7",
-        "942daac7db66ef33d82a9f298380528b2232947e8d9781c2ce9af8b1363f5ff57197dec6ac9189d6fc0c9513e29cb621c4296416d6897c4cd06ca7ea",
-        "4f93c23735c3ce8133a601d76843cd8095f785434f52ac32ef37bc4f3d4b94fff0d6187ca53e107e5c52c792c534d1922f66761f929fecc19e030a9f",
-        "38090326bbf596fcd735c7b1d7c1460740e3ea775e18b9ce008ae58e0ae40b60dfccb5bebff5e7abd1409dc126bb3abf58d2e86fe763e06e799c957e",
-        "d4cb7c4a6ab28603c146c5a70533eb0c3872255ab8bea24cba18cb52e22384301e2d01b016005ae9193c0eb5b2ee18cdc68478062dcedb7769561ff0",
-        "41c10b65d0b21e79ac3ecc1b307d3dd5297f18141abd7fdf9d7069077a75f29099fb49aa89e061b841cda0e48fcaeca2070f1f53cd95324997c45557",
-        "396b2d51a9492ffa666352fc0c0dd0b9f6a51ca96a2c37419669d9ea5924d108bc54fad05cb24fde33b924a6142f6845412976ec568dae913503c17b",
-        "b29718e2da88835ada08693c3e6795a3921ce0c01d7d48d3f9591406766deab557eb9e8fc57933793e8c957082989bcd0fa2031ddae3af1d95f76b7d",
-        "3c4292034c485fc091515ce1c5be158cea2c0db47b3000ce8cae79309b8b76d99a974c00eef034e9f19bf9bb423998459b3e5a6826ec370c20e59ae8",
-        "55985a6ba9b4d8c9ea70577ed7700b7009e15de6511e4a769434bef639fdddaa45c2758aedfe8596b0cebc60ea360416fc6ce1926ec036452b593869",
-        "ae6fec4fe67417d18779b1bae984c3e0036d94c56b06bc270e9a459ce53201785b1fb16c5c46b1cbb12d5aeee42119a365f319d08311a8c940cbd101",
-        "1ae429ec119bb3e7b0ea6e3887a02fca004b5da5bf7e4fba4870db88efd7b34f675357405329ea8a78a790f0ce0669e3d1637951cbb02421b31fb82c",
-        "c677a957d24f127dfdc3062b0a29816d80517f704c7bcabb72ca99ea8a774cde1496c370a8bc98fb5b65dab3b4d889090d5a6885dd43bf153ee0a3f6",
-        "603251c180990d6997f0956f72d5515e46d15331dfce857d254dedab4142c38dd5b322eb1f7c4e8d5ad6688e992f91193777bea4bcabfd1e820705c0",
-        "71b75297a3f857f2706a269ee3898f338946ccdc8beb8f2d98b3f7d142d11e0fff999ce2b8388dc53e8f11ec2e8fad664095fa5d181749321ca3dedf",
-        "fd8a3e8fbd2a697bb4464df0e058761f4c823c02950ea2af4f22cb8774298d1c1421bd1f0cd70912fcbb70bee53d3d853458bc6c8b38fdaa1d8119cf",
-        "3148e06f4743b463b5ce2dd949837d63bbd399546120d01cbe9a1f0a9690a35640bca654fec6350ed26834db39bdf9df9cfc7a8101e4094e06e6f329",
-        "ef8081f8cfe1c3c48380f9ab5e240f1e5367b81753e245fd43dadfcc2f3b06e5adb78a94a4022a6b7263fd1b6cfd43a581455e27d7ac6d8110fa75b9",
-        "1ad1130e3854389b19ff09c8fdc7404657c0e376755af8a22bf0ecab64295169c8ad936ed1f0d8298180ae13512a52f45e55b0d4165058b9a35b43e9",
-        "338e332440c1290ac703505f62c701d114bea81bc60662dd5a123d0597a680096313daf7548dc436b3882c0f4082e4b77a61fdbd9ab0f992c3d6a3a2",
-        "b4490b89b795900b5b6419adccadd924bfa224de80ccad4c117b34f1f7d4adea2079d9caf51352edb70acc25979a9354fc38c9ffbdcd4c26242d2df1",
-        "2c781c989741e887cab2b980d7d42061ef9892de17b44da52addcce4e8b3b47c2ad0ae83ed8a4913fc6015480dc7829155c03fdda2d9fed25a806168",
-        "0ba9687b1a168c2877d155ea308bd4adbb6ee8be6b71faf0ada32ec95a5e8a4f8b5af79a2417b50b366125da03308df770cc95861cb6fb5b9b5d580c",
-        "fcbc74d7cd4049e5239e428e1be4040285e85b443f3f61aa7da33a83a1aabba6b0f72ea50f818c86b976a0ed94b5860a32d1824d5f58d75d2af926f6",
-        "b7abe51aae03f9ff8e030c5a66fb33cbb0bf0a406aae18b59010d97ec94a09fbacc44b80d588108af318234cb5a5c8c357910757f369ad515c592f1c",
-        "860905f0e7c049557fc0624eb5a50d2e312b6c2336a873121c03cfc091a93f792b4eff0d584b29e6a3c7df2f51e155badd2cbbc14198bc95b8e06280",
-        "22644196f9626babc2d81870541da985df78a87df866f586b3c105f91af2f5127eecbaed001727e06ecfd8eaa861ba3697b358321a7ad756d796438f",
-        "1175e09169d81b2cba540e8c705773d5d5487f4dcec4c1352cc3b20aa9dc1e6c29cecf4adb9d279a397c470999245a10fa191c261054699404f641ec",
-        "5ac0dca0ed55f2aec5d5a56b0b6e3fe4e25649c2f83f383dff3c87dea93b5195cf0bc05df35cbcb094600b4530d081751189c617c80e57e3ca5d3e2e",
-        "e710988d5bf9727c4d92e421a82e8ccc05aa827fadc3549ccdb1e79086fc6a85c71c79b1c53c015f8904d4b65159f898daf16b66f70df7cf9a3d35a7",
-        "b0cb6182320b69a13e0ec8cbf58c931a5ed747eda47ecc7704461199076f274b453d5d21ded5101e2cfdffe99b9cd11bec7caed6ff5a56969062d65d",
-        "408fc0bc9b5b9d939598e84556818292dc91ccebbd5d41ad809d1dc89e5ce042b89d7d7163981a7036bc32e39376b3899d2f7cd984f3753a748c010b",
-        "5ea914934ec359b051123a895628861f75f0c347a60f4847945c8809589f03c6065dc6966f83a8f0b59dc16728100c12ed104bce2b8655452aef9ca1",
-        "813d3f54c5e1a9da6fdeae133c376d842bc75c589b3ea008d4c7ad6ad2faeb26c65a557e9a4eef62e30552c8019f81d1b034e19c1aa1c9fe3fd8c672",
-        "59dd0f841fff353049b46c312e22e67e79bc565d5dde94f6fb43f6a43132594007b9ff24423f863257611c60699578805f7a0750d552d5cd675dd2f1",
-        "919e5fe5771025e7969af959e11c15ae898a472b76dec31493eb5b6d23f021038d445606dd92d0ba62e1d13e5a0b5686e88565822910dadaafb95abf",
-        "0ad80642a9274e09ec3e396a28f46d6c15f83670123241dbeaa67145dce8e2c187e0c67a8efee85833aca810c7ebeaf1fb1f3b7ed50c1db7a0ebedfd",
-        "8d51506767cb99bf6cc445e00c8d5bf9e3554ca48e1eef548c962808bdc14f03813d527e229a22146ba62b560c616e992916cc711649f77d49e34f62",
-        "7a2a67c9166b41fab3236b588202af46498067f665260d2597f4bf773ab8e5b131adfab76fdce4880fbd1d117d3c8528706087b0c6c6437b48201f99",
-        "eaa137ff9b79ce42fc3e1089376d661f400e52e22d2c2664cfef961ac14992d49757da8afadbfe8a587ca376274e42be7e3016e3281d41337c20c69a",
-        "609b6eb72911850753d7d02102a74879fc1a958ffe36b4d24ce335d39a1005f6f85b39627849a1818975e31e4c7b3bd2637b984a1ed13c3c3638fbd1",
-        "01728731208a0c5cde10d8fb281ecc9a09ef11b8dd0786c068ed18f83065dfeec6cd7fba6bae4b0f3778e32935e40371f4e5cde5a7edccf3534f9887",
-        "e8fa9f6091117f5c8694fd63b7210dc41c6f1be6205c2bb581d9ca217d602649ebdbc4cda9d75bd17093c4c03e525788584609459b304466244da6fd",
-        "ed5a761f74f8f4cf47b512ccb08f07cb20fefac3dd0e2bf23d79b02d3ba5ce6876d88423488094aa27d96b04d26f9b15e8fa0a083c4b3f7fcdcff6ed",
-        "250582ea5b7569487f401abb7e66463d3eb696708820a720bac23fb042edebf3aacce1f3cbd42dae955d4e1e3d353d33c81fde6b549482f07a5c4444",
-        "6d53653fbf2bf597129a152b7dd6eafe18be29f0c698ffa5b5f6045b1fee3b6a383f66d9e578d058bff1fb11842ecee8a36d56d66cb9fbe57343a9de",
-        "7cd7815631258a4ebd5f4ef54aab86921caab159ed2cc30b69c9db05268ef69c7d3d4e9751c476feb5e0d1ba47463614c8d3776cb35cd3c3362a2316",
-        "37207fa3b869341c059b1d65920d42bcbf0f43b31b7d958ae07dca501bfcfb492d4c76e94ef5736118ba7cc40dd274430cfac89831b8499e88b158bb",
-        "c75554ee2e94972baf9870ab72246d995f34770d05a06f784a3022ff0cdd154fa428d8ef4d5327d59c50072f8715347eb25d26ed1c662eb91c045609",
-        "04faac7f4de74eaf21f801e60bc26e212e87989e8569bca1a1256e85e5be20eaa84a56db5aca51a7e062425a90293b56d08a6e03b5cb2d1f06d28ce7",
-        "76b9524a44444e27ffcef2e18190eee49ab032b869d48c21ffeb60cbad93d783606a990d53b24630360b409446b50813270621a4a36c70bab63a1a9d",
-        "d6120ed025271e187a72fcc516f650ddf6090d9db7b6489c839c91c56520988dbbfebfab3819b607df30ebd8335753f89e32f4629db9805c8883bc05",
-        "ab77326d62764320344d87d68b89aa6096b0c96a5640f5dbd718137281e848dd017659f466adc9dd839aaf237b0287a815fd01657f76a8e13a00399e",
-        "e3d186a3b198530518493a00be6229bfaa5e0dcdd845a715e8e155f48893b2cfbab66bc1e6c687ac7cebeb705313003a0362529eabcfc932ff6ff13f",
-        "c29714ef552bc63a8e94f11d115b69b2744da544c23cb912e7edd32060ea660718d165fe83dfdd32556a34ed51c5f4915c5c588b0eaac8cd9dd71020",
-        "e8ec0f1e81c5de0afa81909494e5188f413a41aa1849d6269fd24edb959fab79d4f26bf25e7a0d901730ab8059154b4f14488a4aba2d31c51fc7d763",
-        "29b397002755c36f125a9fe6fffe7369077c7d1702995e2ab390636e580db53d1e717f57a9f3cfb75cc3997d58aa772b160e61d023eb633b901632f4",
-        "98cf642b933821bceb7915be84230a3bc77ac04c3e4cb018bb8c59f0f46bbb4da532a24d3d45ac07cad21bdc57e88c661732971c9a7fe66724ed6637",
-        "ec86d03f266b2351bce3dffd55670ff410762fc6f5f4d705ebea617fb08b543f3791df0807d69e99c0ebce39cecc399692120784f5b61efcf65a8462",
-        "f832faea2894bee5ab263fa11c254cf4f56286a3c1c4b3ae17367ba2837ed89e7caeeb2d0f18c8e713869c551add49a3f1908e5a0a7b8e852e737464",
-        "1633a7b51be878d50cd73a725c69c8fc7ab15b3a5f9bedb088202c572d7e37ce482c4e130bc8083872c054dbc837f52db5ce0824c087f34c435e42bb",
-        "c97ed1e997e9cc444c14e59a2a4565c20aa2ab955ef5c4db6a35d044be7cc4039b77117f1f25d583ac0ed8af9f8cc7ce913e336ea4b1b4f2ca04f03a",
-        "9f9da8d844f53c3b044ffdd668aa61a5ff9b753b8dc816e61e90e5158b8bdfda0c2f483081e60bfb0fd1b617a55c25ecd700d0a86e0839f85e3f6332",
-        "a8c03589a8090490baf42863b927a714f1edb9134c4c69c23cea0a8d8d804ff0b2dcbadee7c61da15445c69ae2a680461ee3ee8f18d1dc506dbe4832",
-        "72b03f268bbe9b07d704b51c4a0f29a5b7e51d4a471c2939ca800deb1fca1354994518dcb789e1b1641b7dc35ddb101bb1fe64b9558c2ef433d9cb4e",
-        "5395347443f08caadca32f58637bf73b38c3e1f508f1685a5b4a4e081d1a5119abd9fcab4ea3d82040590d441e08d23acd64ebf6383074ca8a9b5e59",
-        "3cd40bf858ce62d03b8c6dedb87a416a1837acec0545409aa25447d7e4603d3dfdf1a1c92ef30e204a92624c460969f93df315589b48e952d1c657d0",
-        "e4a556f1e6c156cc26942ad6d3024eadbc772dcb19ba388db376241a454833bfb0b6a164e73f94e74aa6019ba4726d77cd9c3e3139e11223e5414a53",
-        "6f3af7b1593d253b90797c7211c1c4e5600638bafb296a22356c48d346fb67487b9fb07e206510204cdcc1202b236e8b71423d8ec2a5bd295db89399",
-        "cd278febec901c9c4a61802d73dcb8357d736f4abcf7a7497bc049d4e092fe2d240964aa01459b5162aca003c85e9533498390e174c223ff1fb44570",
-        "6c784f276966d7b2ad88112e9e0392b040ff93b4364960d6c6de220d65c72f06490ca5f43273e889ac86d1d216d59d861d5408fc8a3a2c041594b112",
-        "4b7e4fe828f3f338c1d1f221d6b58e4f0b5d5722b4daf9f185f5a7c5830b2277265ea3f7341fd226cb925369d7009ad7c8f5ac0ebf69d1c2f7ef5e1c",
-        "caf9026d168f864842b31aa691d3dd3007228e9bce32bcad105187fd59b1060b812774c209ae5aaf340db3d23fd08e079ce2cf4297a93856a30c5a7a",
-        "260275bc314957eb315c27d7a663dcd884612204968c7fea6dfe4d682431f801728e65919da31e260db9b898db7728099567094351be8215c7e3ecc9",
-        "3862701d9e8e7d05d023e2f164f374dcd048963824943f40e52d5e7ad40884a94b8346dc98618fff5aee5b13c35aa78825ee895554b86944f671adb0",
-        "a06de2d47d8fcd356981a82c6fe6c0f7fdc98c9a92994ee25c02116ab8b0937b66d3b075b8a15dc22a370b6ab614595b4d8350ffe37add7c6ae6a82e",
-        "5ad53a65404a1878a51095f4d17eb722a2545db1ad08ce893b0edd0f9a41e3374f28b192092b9cd817f4fc4a65839827ed7b7f6fa0a507f20d55dac5",
-        "bb748f3f026352e0409b87c935291590269c4c56d8a391fd8e26a75ba04d3c2783faa9d20131314b2d7661f382b64ce3f690e7f8257e69f04ed0ca19",
-        "1f1613b3b4bbfb8c739cf10591238a98ff94482907bba7533f02303616e49863a5fbe13ac676b3b07c2fe21c5b35e49253a65747fcd6632ac691eb22",
-        "6d63e307f6ca8e2d959fa57706a5b25f6eee898145511fe604dd090010241e599f5daf10fc96e757120ae7a4f8f86d2035f22bcbecc7b6c50a71f6e8",
-        "fe9b23cbc8f3f04e8b356e07f300a533ea799349296ab800e507bae3bb3c5a9b47780cf5f2ba713283301683838c485b00a45f95437a7c4a71bfceaa",
-        "b7cfed7aac3112aec3c0b5eb7498d737a3c32f74a8a1b18fd8ae7fd97788046cb90c257758fa733e5e91ab176d251c269de69a07b47de13e189c2bec",
-        "7c77730c47cfdfc5a2726e084a212eb05b4bd3d585b1f70ed5b40938cd1474939acb1cdc5e20155aee86d71e47b3f53eafa99b8019c7ea010c503cbc",
-        "0eb85b014cafe5b2e3c6f90cda2e4710f86f378af1783932ff6f8f87e0311b6f85cef4295d7ab65154e09a40fabffc1e9d8c24217f9d541b17578688",
-        "8acc4ca30b7438ee6806b1f8239b907bf242bc02e33cd5bfd0cc7068bd1cdd716be9cc7d552d986c67b65b583cd57d0e4f26464179efafce225292fe",
-        "758de583c25bdf1717e68c626c367365777de0ffa19273a5d1ee55f2df4874c854f5ca951a2e8743a9bc8c7a52b28c67df3dd45490939d752583342f",
-        "64118597b7e4c8607eb7671af197af6bbc324120dc4d7c5c99c55eaf5e9ff8e57a3254f27ee6562e44d451a4651bb68569557c80ccd16c181e5a829d",
-        "6f2f9cfe4783a92be7e03911b63734ade59c614b9e1d901ee2125c144e21451786de3c8bd03a0231daef572440a2b26ed315c321a22cbef9c9489f5d",
-        "36f1937e9fdcd62b19efe90e68c21351d05ec8dea9cb5fda81768ab3077aff3cba113cf971e3dcd2196da179d2038e07fa759e3259ab560d5efb0337",
-        "82c8cfa6c8131c0c51ec7a653ac73ee72dd049f69cd45059836d213b259eba6df2f1fec17a7a52a4966d6002c605774fd6642b504848da22930c5c49",
-        "75454729793051e620a74b60984f91f2cd1090f4a5f38523de08e9aea27e8c6d1ad4380b861a9d02436bf6c22bd53eff262970a16f3df9d96c19c3b4",
-        "267d5276882884bdcf6d06f4e98f0faa443def7c4145d6dfa31e44f64f7ac999b9df5306f7b52bb854b3f7ba9c8153cc47fe6f788fbb29709fb07fb8",
-        "a605877b16e30ff5a3e1a0826a31aab8adf72ab637eeb678159e6e00601c90ec6151373c822edf5a39373fb12d5c040631c58e0f72ec40f11b325da8",
-        "f3936478dd120e52310eeb3be7077de25a3999bfdc95d9a35cd7905709c5697bc0ff7aba04941e052ca23865f42a01d2de967db9737778d9764b9dff",
-        "6fa68d6e9c43fd7b44895ff34b7834dcec5db0efc41625c4b30b20dc6cee7392f2c0eb081312fd66f89a5bfe66bb254f1d08c7a55ffd1b32b281f1c7",
-        "bbd51c420684711e38f1d3b1106716d1480a0444dd248d77a82e9ee7e3d68e6f7809791b09d9674150eb7b96627497fa769c41b9ba16b9e94832e3dc",
-        "44a23359cda89070d877fd19733a7d05e1b40b3b629ee708721b6cc55b57bbd22dff1f017f427c4f4585a4bfc0c4c4489826177a060bfb5d952121cc",
-        "49ebeda654f61db1a47ebf93343a0003213c8bcbbf1aa8811e455d97dfbceec34503f47e0c2084c224909484cf75c7e3f7cc43ac74ca6752e7f5c612",
-        "2532a448b8a52334017d84f10bdbfd6b68343c12af47ce5070faa7ce9bb872e8b58811860da43d572668aef66540775853c1b61fae7f42f36d808557",
-        "de39e9906709c37432d6d39a80f9f46379079a7fbcc95d5d6c1e70b57a75f411d2da27fe029bf1e38be19e465c1d7f2754b6a5b935a9a4485587882c",
-        "efdea0ea8a4f27a985ac5fc07c6968112770927151706b06caefbd887173f67f4d469e211f4a73e3ec7f862462cc2a99c3c3b569343d8751d7d058a5",
-        "a8e9bc1293c7ec613827b50c75da363586f2f7a8b769e8fd03ec3558ba38ab79393313c8aa9d8a9edd8e5f884c79770ac45b51e744f767ca06c569b7",
-        "b75a5a4f9f2329f50704d2b1803c180b2829e21697c14609fba93ca135dd96bb99c3b0be951785b5947cf4c086d2733154f74865f4c2025d0821e5f0",
-        "66bfd48609fd5fbf856e3891eca0cdbbb063a5835e5f2a704369e417563e7d69dc6029d2b07b5b250c970dfac494a669e256b154104ed12a703a68bb",
-        "45bce517ac6ba3f8c3ba7de81ae9a033cf1c1dbb8ef6845127a2cf355913304768b7e4c6ef18a19da0a567b31a6fc5c497dd7826e9d5274326a51830",
-        "f3e8b882db1bca9e6cb221ad020fb3bf07e2339d2a3357b12f77fed58317e707410eeec4f4585f240cd7be821ffafc2aec0db17bd11cfbff2da84fbe",
-        "b877ee26fbf7f4f3507a19a5e206c93886c3fa46d9bda0104a93e99833a6819c1f41fc5f82dd34dae861afe4e1f5560c2c2182d8f01c65d7ae373501",
-        "49c7fc2a232f225973c4d555d50788aa70f157eb05aeb9edec6fa7273767d4cff830fffb1595f5f39ef27481d523cf87d502af208e5b21babcce60e4",
-        "072d3caab8fbca0da3c3fbedca8dfb3687e75922df532d02f84d9184025b8251be4b4fb27112542f4f20ba55fc17b0db5747f903e654339604742a5e",
-        "fe23a4dbdc490614e26eabe441ff86dbb6d28404eda206c69e684526c58d9d0b170417b71eb7480afbfc4b06f78f21e84fd72a69854ca4ba0bb9d54e",
-        "76e05c54ee78ff5365dd7d4af66d1dc541f87f2d63cc3d0baa59cc0e0b9e7c66584471d476eaaa6196d144cd3e5e024eccc91d138c1f4280ddb3e43a",
-        "a1d3368fc0979390f89de8f19e9256f94c626ccb3815995d746d9be5d9063ee7c9ba6dc958b183bcf7a841de7c92c549f53f932841bd3554e0c967d0",
-        "ec1d373a8a7cfb5b597c100b108e849b98ea564848f6f586a490cd2e57d31ff3"
-    }
-
-    local _cff_state = 0xAA
-    local _cipher_bytes = {}
-    local _decrypted_out = {}
-    local _payload_str = ""
-    local _round_keys = nil
-    local _counter = {}
-    local _total_len = 0
-    local _curr_idx = 1
-
-    -- Opaque mathematical predicates
-    local _pred_x = 0x1337
-    local _pred_y = 0x002A
-
-    while _cff_state ~= 0x00 do
-        -- Dead / Bogus Jumps insertion
-        if ((_pred_x * 7) + _pred_y) % 2 == 999 then
-            _cff_state = 0xDE -- Dead branch, never reached
-        end
-
-        if _cff_state == 0xAA then
-            -- STATE AA: Concatenate hex chunks into raw byte array
-            local fullHex = table.concat(_0x_chunks)
-            for i = 1, #fullHex, 2 do
-                table.insert(_cipher_bytes, tonumber(_sub(fullHex, i, i + 1), 16))
-            end
-            _total_len = #_cipher_bytes
-            _cff_state = 0xBB
-
-        elseif _cff_state == 0xBB then
-            -- STATE BB: SHA-256 Cryptographic Integrity Check
-            local verified = _sha256_verify(_cipher_bytes, _0x_sha)
-            if not verified then
-                return nil -- Tamper detected, silently terminate
-            end
-            _cff_state = 0xCC
-
-        elseif _cff_state == 0xCC then
-            -- STATE CC: Expand AES-128 Round Keys & Initialize 128-bit Counter
-            _round_keys = _expand_key(_0x_key)
-            for i = 1, 16 do _counter[i] = _0x_iv[i] end
-            _curr_idx = 1
-            _cff_state = 0xDD
-
-        elseif _cff_state == 0xDD then
-            -- STATE DD: AES-128-CTR Decryption Stream Engine
-            while _curr_idx <= _total_len do
-                local ks = _aes_block(_counter, _round_keys)
-                for b = 1, 16 do
-                    if _curr_idx <= _total_len then
-                        table.insert(_decrypted_out, _char(_bx(_cipher_bytes[_curr_idx], ks[b])))
-                        _curr_idx = _curr_idx + 1
-                    end
+                if i + 2 <= len then
+                    local b2 = _0xba(_0xls(c2, 4) + _0xrs(c3, 2), 255)
+                    table.insert(_0xdec, b2)
                 end
-                -- Big-endian 128-bit counter increment
-                for c = 16, 1, -1 do
-                    _counter[c] = (_counter[c] + 1) % 256
-                    if _counter[c] ~= 0 then break end
+                if i + 3 <= len then
+                    local b3 = _0xba(_0xls(c3, 6) + c4, 255)
+                    table.insert(_0xdec, b3)
                 end
+                i = i + 4
             end
-            _payload_str = table.concat(_decrypted_out)
-            _cff_state = 0xEE
+            _0xcff_state = 0x73
 
-        elseif _cff_state == 0xEE then
-            -- STATE EE: Sandbox Execution & Immediate Anti-Dump Memory Sanitation
-            local fn, err = loadstring(_payload_str)
+        elseif _0xcff_state == 0x73 then
+            -- ChaCha20 + Polynomial Rolling XOR Keystream Unpacking
+            local cnt = 1
+            local ks = _0xblock(_0xkey, cnt, _0xnon)
+            local ks_idx = 1
+            local rolling = 0x6C
+            local out_chars = {}
+
+            for idx = 1, #_0xdec do
+                if ks_idx > 64 then
+                    cnt = cnt + 1
+                    ks = _0xblock(_0xkey, cnt, _0xnon)
+                    ks_idx = 1
+                end
+                local enc_b = _0xdec[idx]
+                local k_b = ks[ks_idx]
+                ks_idx = ks_idx + 1
+
+                local orig_b = _0xbx(_0xbx(enc_b, k_b), rolling)
+                table.insert(out_chars, _0xchar(orig_b))
+                rolling = (rolling * 37 + enc_b) % 256
+            end
+            _0xsrc = table.concat(out_chars)
+            _0xcff_state = 0x84
+
+        elseif _0xcff_state == 0x84 then
+            -- Protected Virtual Machine Execution Layer
+            local fn, err = loadstring(_0xsrc)
             if not fn then
                 error("[MINTRAZERX_SECURE_VM]: " .. tostring(err))
             end
 
-            -- Wipe registers and raw buffers
-            _cipher_bytes = nil
-            _decrypted_out = nil
-            _payload_str = nil
-            _round_keys = nil
-            _counter = nil
-            _0x_chunks = nil
+            -- Anti-Dump Memory Sanitation
+            _0xdec = nil
+            _0xsrc = nil
+            _0xraw = nil
+            _0xchunks = nil
             if collectgarbage then
                 pcall(collectgarbage, "collect")
             end
 
-            _cff_state = 0x00
+            _0xcff_state = 0x00
             return fn(...)
-
-        elseif _cff_state == 0xDE then
-            -- Dead State Trap
-            _cff_state = 0x00
-            return nil
         else
-            _cff_state = 0x00
+            _0xcff_state = 0x00
         end
     end
 end)(...)
