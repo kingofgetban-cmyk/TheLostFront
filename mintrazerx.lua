@@ -100,7 +100,16 @@ end
 -- 3. LOAD SCRIPT FROM SERVER INTO MEMORY
 -- ==============================================================================
 local function ExecuteGameScript(key, gameCode, gameTitle, RayfieldLib)
-    local cleanKey = key:gsub("%s+", ""):upper()
+    local cleanKey = tostring(key or ""):gsub("%s+", ""):upper()
+    if #cleanKey < 4 then
+        pcall(function()
+            if isfile and isfile("mintrazerx_key.txt") and readfile then
+                local diskKey = readfile("mintrazerx_key.txt")
+                if diskKey and #diskKey >= 4 then cleanKey = diskKey:gsub("%s+", ""):upper() end
+            end
+        end)
+    end
+
     local url = SERVER_URL .. "/api/client/script?key=" .. HttpService:UrlEncode(cleanKey) .. "&hwid=" .. HttpService:UrlEncode(CURRENT_HWID) .. "&game=" .. HttpService:UrlEncode(gameCode)
     
     if RayfieldLib then
@@ -559,8 +568,8 @@ local function ShowRayfieldKeyLogin()
         NoteMessage.TextColor3 = Color3.fromRGB(200, 200, 210)
 
         task.spawn(function()
-            local ok, valid, data = VerifyKeyOnline(rawText)
-            if valid then
+            local isValid, message, data = VerifyKeyOnline(rawText)
+            if isValid == true then
                 NoteMessage.Text = "Key Approved! Loading Hub..."
                 NoteMessage.TextColor3 = Color3.fromRGB(100, 255, 120)
 
@@ -581,7 +590,7 @@ local function ShowRayfieldKeyLogin()
             else
                 isVerifying = false
                 VerifyBtn.Text = "VERIFY KEY"
-                local errMsg = (data and data.message) or "Invalid key. Check website."
+                local errMsg = message or (data and data.message) or "Invalid key. Check website."
                 NoteMessage.Text = "Rejected: " .. tostring(errMsg)
                 NoteMessage.TextColor3 = Color3.fromRGB(255, 80, 80)
 
@@ -625,14 +634,24 @@ local function Start()
     end)
 
     if cached then
-        print("[MintraZERX] Verifying cached license key...")
-        local ok, valid, data = VerifyKeyOnline(cached)
-        if valid then
+        print("[MintraZERX] Verifying cached license key: " .. tostring(cached))
+        local isValid, message, data = VerifyKeyOnline(cached)
+        if isValid == true then
             print("[MintraZERX] License verified. Opening Hub...")
             OpenRayfieldHub(cached)
             return
         else
-            warn("[MintraZERX] Cached key invalid. Requesting new key...")
+            warn("[MintraZERX] Cached key invalid: " .. tostring(message) .. ". Purging cache...")
+            pcall(function()
+                local rfldPath = "Rayfield/Key System/" .. SAVE_KEY_FILE .. ".rfld"
+                if delfile then
+                    pcall(delfile, rfldPath)
+                    pcall(delfile, "mintrazerx_key.txt")
+                elseif writefile then
+                    pcall(writefile, rfldPath, "")
+                    pcall(writefile, "mintrazerx_key.txt", "")
+                end
+            end)
         end
     end
 
