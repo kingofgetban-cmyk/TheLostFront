@@ -198,6 +198,7 @@ local Config = {
     SilentAimPart = "Head",
     SilentAimWallCheck = false,
     PredictionEnabled = true,
+    SilentAimLine = true,   -- แสดงเส้นสีเขียวบางๆ ชี้ไปหา target ที่ lock
 
     TriggerBot = false,
     TriggerDistance = 150,
@@ -304,6 +305,7 @@ local shotDiag = { fires = 0, applied = 0, noTarget = 0, lastFireAt = 0 }
 local replicateCaptureError = ""
 local shotHookWrapped = nil
 local aimFovCircle = nil
+local silentAimLine = nil   -- เส้นสีเขียวแสดงว่า Silent Aim ล็อกใคร
 local aimBeganConn = nil
 local aimEndedConn = nil
 local aimKeyChangedConn = nil
@@ -1107,6 +1109,18 @@ CombatTab:CreateToggle({
     Flag = "tlf_silent_wallcheck",
     Callback = function(v)
         Config.SilentAimWallCheck = v
+    end,
+})
+
+CombatTab:CreateToggle({
+    Name = "Silent Aim Line (เส้นชี้ target)",
+    CurrentValue = true,
+    Flag = "tlf_silent_aimline",
+    Callback = function(v)
+        Config.SilentAimLine = v
+        if not v and silentAimLine then
+            silentAimLine.Visible = false
+        end
     end,
 })
 
@@ -2595,6 +2609,17 @@ local function ensureAimVisuals()
             aimFovCircle = d
         end)
     end
+    if not silentAimLine then
+        pcall(function()
+            local l = DrawingLib.new("Line")
+            l.Thickness = 1        -- บางมากๆ
+            l.Visible = false
+            l.ZIndex = 997
+            l.Color = Color3.fromRGB(0, 255, 80)   -- เขียวสด
+            l.Transparency = 0.35  -- โปร่งนิดนึงให้ดู clean
+            silentAimLine = l
+        end)
+    end
 end
 
 local function updateAimVisuals()
@@ -2612,12 +2637,42 @@ local function updateAimVisuals()
             aimFovCircle.Radius = Config.AimFov
         end
     end
+
+    -- Silent Aim Line: เส้นสีเขียวบางๆ จากกลางจอไปหา target ที่ lock
+    if silentAimLine then
+        local showLine = Config.SilentAim and Config.SilentAimLine and CAM
+        local lineDrawn = false
+        if showLine then
+            -- ใช้ _silentAimCachedTarget ก่อน ถ้าไม่มีใช้ currentAimTarget
+            local t = _silentAimCachedTarget or currentAimTarget
+            if t and t.part and t.part.Parent then
+                pcall(function()
+                    local targetPos = t.part.Position
+                    local sp, onScreen = CAM:WorldToViewportPoint(targetPos)
+                    if onScreen then
+                        local center = Vector2.new(CAM.ViewportSize.X / 2, CAM.ViewportSize.Y / 2)
+                        silentAimLine.From = center
+                        silentAimLine.To = Vector2.new(sp.X, sp.Y)
+                        silentAimLine.Visible = true
+                        lineDrawn = true
+                    end
+                end)
+            end
+        end
+        if not lineDrawn then
+            silentAimLine.Visible = false
+        end
+    end
 end
 
 local function destroyAimVisuals()
     if aimFovCircle then
         pcall(function() aimFovCircle:Remove() end)
         aimFovCircle = nil
+    end
+    if silentAimLine then
+        pcall(function() silentAimLine:Remove() end)
+        silentAimLine = nil
     end
 end
 
