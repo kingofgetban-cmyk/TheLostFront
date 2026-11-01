@@ -1386,6 +1386,24 @@ local function hookSpreadModule()
         return mod and require(mod) or nil
     end)
     if okM and type(shotMod) == "table" then
+        -- Reset originals ก่อนทุกครั้ง เพื่อให้ unhook เก่าออกแล้ว hook ใหม่สะอาด
+        -- (ป้องกัน hook ซ้อน hook เวลา script รันซ้ำ)
+        if originalMakeSpread then
+            pcall(function() shotMod.makeSpread = originalMakeSpread end)
+            originalMakeSpread = nil
+        end
+        if originalCalculateDirection then
+            pcall(function() shotMod.calculateDirection = originalCalculateDirection end)
+            originalCalculateDirection = nil
+        end
+        if originalRaycast then
+            pcall(function() shotMod.raycast = originalRaycast end)
+            originalRaycast = nil
+        end
+        if originalFastCastFire and type(shotMod.object) == "table" then
+            pcall(function() shotMod.object.Fire = originalFastCastFire end)
+            originalFastCastFire = nil
+        end
         -- 1. Hook makeSpread (Visual bullet direction)
         if type(shotMod.makeSpread) == "function" then
             if not originalMakeSpread then
